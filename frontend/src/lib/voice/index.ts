@@ -6,9 +6,3 @@ export { playFinnVoiceLine, type PlayFinnVoiceLineArgs } from '@/lib/voice/playF
 export { playFinnGreeting } from '@/lib/voice/playFinnGreeting'
 export { getVoiceCacheUrl } from '@/lib/voice/voiceCache'
 export * from '@/lib/voice/quizVoice'
-export {
-  getCoachAgentId,
-  getCoachSessionStatus,
-  getCoachSetupHint,
-  startCoachConversationSession,
-} from '@/lib/voice/coachSession'

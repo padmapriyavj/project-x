@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
-import { FinnChatWidget } from '@/components/finn/FinnChatWidget'
-import { NotificationsDrawer } from '@/components/layout/NotificationsDrawer'
 import { AvatarImg } from '@/components/ui/AvatarImg'
 import { useAuthStore } from '@/stores/authStore'
 import type { UserPublic } from '@/stores/authStore'
@@ -41,7 +39,6 @@ export function AppShell() {
   const coins = useStudentEconomyStore((s) => s.coins)
   const [menuOpen, setMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
   const location = useLocation()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -82,9 +79,6 @@ export function AppShell() {
       <NavLink to="/student/practice" className={mergeNavClass}>
         Practice
       </NavLink>
-      <NavLink to="/coach" className={mergeNavClass}>
-        Coach
-      </NavLink>
     </>
   )
 
@@ -114,14 +108,6 @@ export function AppShell() {
                 <nav className="text-foreground/85 flex flex-wrap items-center gap-1" aria-label="Primary">
                   {user.role === 'student' ? studentPrimaryLinks : professorPrimaryLinks}
                 </nav>
-                <button
-                  type="button"
-                  className="text-foreground/80 hover:bg-background mx-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-xl transition-transform hover:scale-110"
-                  aria-label="Notifications"
-                  onClick={() => setNotifOpen(true)}
-                >
-                  🔔
-                </button>
                 {user.role === 'student' ? (
                   <div className="mx-2 flex items-center gap-3">
                     <div className="bg-background/60 flex items-center gap-1.5 rounded-full px-2.5 py-1" title={`${streakDays} day streak`}>
@@ -287,9 +273,6 @@ export function AppShell() {
                       >
                         Practice
                       </NavLink>
-                      <NavLink to="/coach" className={mergeNavClass} onClick={() => setMenuOpen(false)}>
-                        Coach
-                      </NavLink>
                     </>
                   ) : (
                     <NavLink to="/professor" end className={mergeNavClass} onClick={() => setMenuOpen(false)}>
@@ -313,16 +296,6 @@ export function AppShell() {
                     </NavLink>
                   </>
                 ) : null}
-                <button
-                  type="button"
-                  className="text-foreground/80 hover:bg-background mt-1 w-full rounded-[var(--radius-sm)] px-3 py-3 text-left text-sm font-medium"
-                  onClick={() => {
-                    setNotifOpen(true)
-                    setMenuOpen(false)
-                  }}
-                >
-                  Alerts
-                </button>
                 <button
                   type="button"
                   onClick={() => clearAuth()}
@@ -357,13 +330,6 @@ export function AppShell() {
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-10">
         <Outlet />
       </main>
-
-      {token && user ? (
-        <>
-          <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
-          <FinnChatWidget />
-        </>
-      ) : null}
     </div>
   )
 }

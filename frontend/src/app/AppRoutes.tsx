@@ -2,7 +2,6 @@ import { Route, Routes } from 'react-router'
 
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { AppShell } from '@/components/layout/AppShell'
-import { CoachPlaceholderPage } from '@/routes/CoachPlaceholderPage'
 import { ConceptReviewPage } from '@/routes/ConceptReviewPage'
 import { CreateLessonPage } from '@/routes/CreateLessonPage'
 import { DuelVoicePreviewPage } from '@/routes/DuelVoicePreviewPage'
@@ -56,7 +55,6 @@ export function AppRoutes() {
           <Route path="student/quiz/:roomId" element={<QuizRunnerPage />} />
           <Route path="student/tempo/:instanceId" element={<TempoScreenPage />} />
           <Route path="student/practice/duel-voice-preview" element={<DuelVoicePreviewPage />} />
-          <Route path="coach" element={<CoachPlaceholderPage />} />
         </Route>
 
         <Route element={<RequireAuth allowedRoles={['professor']} />}>

@@ -131,8 +131,8 @@ export function StudentDashboardPage() {
       ) : null}
 
       {/* Quick actions */}
-      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <Card padding="lg" className="flex flex-col items-center text-center">
+      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card padding="lg" className="flex flex-col items-center text-center">
           <span className="mb-3 text-3xl">🎯</span>
           <h3 className="font-heading text-foreground mb-2 text-lg">Practice</h3>
           <p className="text-foreground/70 mb-4 flex-1 text-sm">Take a practice test to sharpen your skills and earn coins.</p>
@@ -150,17 +150,6 @@ export function StudentDashboardPage() {
           <Button type="button" fullWidth onClick={() => setIsJoinModalOpen(true)}>
             Join Course
           </Button>
-        </Card>
-        <Card padding="lg" className="flex flex-col items-center text-center">
-          <span className="mb-3 text-3xl">🦊</span>
-          <h3 className="font-heading text-foreground mb-2 text-lg">Talk to Finn</h3>
-          <p className="text-foreground/70 mb-4 flex-1 text-sm">Get help from your AI study coach anytime.</p>
-          <Link
-            to="/coach"
-            className="bg-secondary text-secondary-foreground hover:bg-secondary/90 inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-sm)] px-4 text-sm font-semibold transition-colors"
-          >
-            Chat with Finn
-          </Link>
         </Card>
       </div>
 
