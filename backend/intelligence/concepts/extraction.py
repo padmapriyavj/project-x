@@ -1,13 +1,8 @@
-"""OpenAI: extract concepts from course + lesson context and material text."""
-
 from __future__ import annotations
-
 import json
-import os
 from typing import Any
-
-from openai import OpenAI
 from pydantic import BaseModel, Field
+from intelligence.llm.openai_compat import default_llm_model, get_openai_client, use_openai_json_schema_mode
 
 
 class _ConceptOut(BaseModel):
@@ -73,15 +68,10 @@ Return a single JSON object matching this exact shape. Use "concepts" as the onl
 """
 
 
-def _client() -> OpenAI:
-    key = os.environ.get("OPENAI_API_KEY")
-    if not key:
-        raise RuntimeError("OPENAI_API_KEY is not set")
-    return OpenAI(api_key=key)
-
-
 def _concepts_response_format() -> dict[str, Any]:
-    return {"type": "json_schema", "json_schema": _CONCEPTS_JSON_SCHEMA}
+    if use_openai_json_schema_mode():
+        return {"type": "json_schema", "json_schema": _CONCEPTS_JSON_SCHEMA}
+    return {"type": "json_object"}
 
 
 def extract_concepts_from_text(
@@ -89,13 +79,16 @@ def extract_concepts_from_text(
     course_name: str,
     lesson_title: str,
     material_text: str,
-    model: str = "gpt-4o-mini",
+    model: str | None = None,
 ) -> list[dict[str, str]]:
     """
     Returns list of ``{"name": str, "description": str}`` (typically 4–8 items per PRD §7.4).
 
-    Uses OpenAI structured outputs (json_schema) so parsing matches what the API / frontend expect.
+    Uses OpenAI structured outputs when the backend supports them; otherwise ``json_object`` mode.
+
+    Model defaults to ``LLM_MODEL`` (e.g. ``gemma3:4b`` for Ollama) or ``gpt-4o-mini`` for cloud.
     """
+    resolved_model = model or default_llm_model()
     system = (
         "You are an expert curriculum analyst. Given course context and instructional text, "
         "extract distinct important concepts students must learn. "
@@ -111,8 +104,8 @@ def extract_concepts_from_text(
         f"Material text:\n{material_text[:95_000]}\n"
     )
 
-    resp = _client().chat.completions.create(
-        model=model,
+    resp = get_openai_client().chat.completions.create(
+        model=resolved_model,
         temperature=0.3,
         messages=[
             {"role": "system", "content": system},

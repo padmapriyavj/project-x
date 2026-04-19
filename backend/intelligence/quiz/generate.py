@@ -79,6 +79,7 @@ def generate_quiz(req: QuizGenerateRequest, created_by: int, *, rng_seed: int | 
         context_text=context,
         concept_specs=concept_specs,
         allocations=allocations,
+        model="gpt-4.1-mini"
     )
 
     meta = build_generation_metadata("gpt-4o-mini", seed=str(rng_seed) if rng_seed is not None else None)

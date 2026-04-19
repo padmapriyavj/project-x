@@ -109,7 +109,7 @@ export function ConceptReviewPage() {
         description={`${lesson.title} — generate or edit concepts, then set weightages for quiz generation.`}
         actions={
           <Button type="button" onClick={() => generate.mutate()} disabled={generate.isPending}>
-            {generate.isPending ? 'Generating…' : 'Generate concepts (API)'}
+            {generate.isPending ? 'Generating…' : 'Generate concepts'}
           </Button>
         }
       />

@@ -1,21 +1,10 @@
-"""OpenAI-backed MCQ generation (OPENAI_API_KEY)."""
+"""OpenAI-backed MCQ generation (cloud OpenAI or local OpenAI-compatible server)."""
 
 from __future__ import annotations
-
 import json
-import os
 from typing import Any
-
-from openai import OpenAI
-
+from intelligence.llm.openai_compat import default_llm_model, get_openai_client, use_openai_json_schema_mode
 from intelligence.quiz.schemas import ChoiceItem, Difficulty, QuestionDraft
-
-
-def _client() -> OpenAI:
-    key = os.environ.get("OPENAI_API_KEY")
-    if not key:
-        raise RuntimeError("OPENAI_API_KEY is not set")
-    return OpenAI(api_key=key)
 
 
 def _question_item_schema() -> dict[str, Any]:
@@ -124,7 +113,7 @@ def generate_mcq_batch(
     context_text: str,
     concept_specs: list[dict[str, Any]],
     allocations: list[tuple[str, Difficulty]],
-    model: str = "gpt-4o-mini",
+    model: str | None = None,
     temperature: float = 0.4,
     extra_user_instructions: str | None = None,
 ) -> list[QuestionDraft]:
@@ -133,8 +122,11 @@ def generate_mcq_batch(
     ``allocations``: ordered list of (concept_id str, difficulty) per question index.
     ``temperature``: sampling temperature for the model (batch generation defaults to 0.4).
     ``extra_user_instructions``: optional text appended to the user message (e.g. regeneration constraints).
+
+    Model defaults to ``LLM_MODEL`` (e.g. local Gemma via Ollama) or ``gpt-4o-mini``.
     """
     n = len(allocations)
+    resolved_model = model or default_llm_model()
     spec_lines = "\n".join(
         f"- {c['id']}: {c['name']} — {c.get('description') or ''}" for c in concept_specs
     )
@@ -158,15 +150,26 @@ def generate_mcq_batch(
     if extra_user_instructions:
         user += extra_user_instructions
 
-    resp = _client().chat.completions.create(
-        model=model,
-        temperature=temperature,
-        messages=[
+    if use_openai_json_schema_mode():
+        response_format: dict[str, Any] | None = {
+            "type": "json_schema",
+            "json_schema": _quiz_questions_json_schema(n),
+        }
+    else:
+        response_format = {"type": "json_object"}
+
+    kwargs: dict[str, Any] = {
+        "model": resolved_model,
+        "temperature": temperature,
+        "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        response_format={"type": "json_schema", "json_schema": _quiz_questions_json_schema(n)},
-    )
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+
+    resp = get_openai_client().chat.completions.create(**kwargs)
     raw = resp.choices[0].message.content or "{}"
     data = json.loads(raw)
     arr = data.get("questions")
@@ -204,7 +207,7 @@ def regenerate_single_mcq(
     concept_specs: list[dict[str, Any]],
     concept_id: str,
     difficulty: Difficulty,
-    model: str = "gpt-4o-mini",
+    model: str | None = None,
     previous_question_text: str | None = None,
 ) -> QuestionDraft:
     extra: str | None = None
