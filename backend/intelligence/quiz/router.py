@@ -112,26 +112,26 @@ async def post_publish_quiz(quiz_id: UUID) -> PublishResponse:
     return PublishResponse(quiz_id=quiz_id, status="published")
 
 
-@router.post("/quiz-attempts/{attempt_id}/score", response_model=ScoreAttemptResult)
-async def post_score_attempt(
-    attempt_id: UUID,
-    body: ScoreAttemptInput,
-    user_id: UUID = Depends(get_current_user_id),
-) -> ScoreAttemptResult:
-    try:
-        att = get_attempt_row(attempt_id)
-        qid = UUID(str(att["quiz_id"]))
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attempt not found") from e
+# @router.post("/quiz-attempts/{attempt_id}/score", response_model=ScoreAttemptResult)
+# async def post_score_attempt(
+#     attempt_id: UUID,
+#     body: ScoreAttemptInput,
+#     user_id: UUID = Depends(get_current_user_id),
+# ) -> ScoreAttemptResult:
+#     try:
+#         att = get_attempt_row(attempt_id)
+#         qid = UUID(str(att["quiz_id"]))
+#     except Exception as e:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attempt not found") from e
 
-    try:
-        return score_attempt(
-            quiz_id=qid,
-            attempt_id=attempt_id,
-            user_id=user_id,
-            answers=body.answers,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except RuntimeError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e
+#     try:
+#         return score_attempt(
+#             quiz_id=qid,
+#             attempt_id=attempt_id,
+#             user_id=user_id,
+#             answers=body.answers,
+#         )
+#     except ValueError as e:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+#     except RuntimeError as e:
+#         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)) from e

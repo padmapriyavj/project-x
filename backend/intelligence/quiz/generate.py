@@ -72,7 +72,7 @@ def generate_quiz(req: QuizGenerateRequest, created_by: UUID, *, rng_seed: int |
 
     context = load_chunk_text_for_lessons(lesson_ids)
     if not context.strip():
-        context = "(No material chunks loaded; generate from concept names only.)"
+        context = "(No material text for these lessons; generate from concept names only.)"
 
     rng = random.Random(rng_seed if rng_seed is not None else 42)
     allocations = _allocate_slots(cfg, rng)

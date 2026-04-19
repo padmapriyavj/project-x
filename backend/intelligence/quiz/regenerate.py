@@ -47,7 +47,7 @@ def regenerate_question(
 
     context = load_chunk_text_for_lessons(lesson_ids)
     if not context.strip():
-        context = "(No material chunks loaded.)"
+        context = "(No material text for these lessons.)"
 
     diff = str(qrow.get("difficulty") or "medium").lower()
     if diff not in ("easy", "medium", "hard"):
