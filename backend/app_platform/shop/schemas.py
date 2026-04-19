@@ -49,3 +49,33 @@ class InventoryItemResponse(BaseModel):
     rarity: str
     acquired_at: datetime
     placement: dict[str, Any] | None
+
+
+class SpacePlacement(BaseModel):
+    """A single slot placement in the space."""
+
+    slot_id: str
+    inventory_item_id: int | None
+
+
+class SaveSpaceRequest(BaseModel):
+    """Request to save space placements."""
+
+    placements: list[SpacePlacement]
+
+
+class SpaceItemPublic(BaseModel):
+    """Public view of a placed item (no sensitive data)."""
+
+    slot_id: str
+    item_name: str
+    item_category: str
+    item_asset_url: str
+
+
+class PublicSpaceResponse(BaseModel):
+    """Public view of a user's space."""
+
+    user_id: int
+    display_name: str
+    placements: list[SpaceItemPublic]

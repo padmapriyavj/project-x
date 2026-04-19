@@ -31,4 +31,4 @@ export type FinnVoiceTrigger =
   | 'duel_winner_callout'
 
 export const DEFAULT_FIRST_LOGIN_GREETING =
-  "Hey there, I'm Finn! Welcome to Deductible. Whenever you're ready, we'll learn together — one small step at a time."
+  "Hey there, I'm Finn! Welcome to Deducto. Whenever you're ready, we'll learn together — one small step at a time."

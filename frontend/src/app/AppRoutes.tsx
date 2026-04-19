@@ -10,6 +10,7 @@ import { JoinCoursePage } from '@/routes/JoinCoursePage'
 import { LeaderboardPage } from '@/routes/LeaderboardPage'
 import { LessonViewPage } from '@/routes/LessonViewPage'
 import { NotFoundPage } from '@/routes/NotFoundPage'
+import { PublicSpacePage } from '@/routes/PublicSpacePage'
 import { QuizReviewPage } from '@/routes/QuizReviewPage'
 import { RootRedirect } from '@/routes/RootRedirect'
 import { LoginPage } from '@/routes/LoginPage'
@@ -36,6 +37,7 @@ export function AppRoutes() {
         <Route path="join/:courseId" element={<JoinCoursePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
+        <Route path="space/:userId" element={<PublicSpacePage />} />
 
         <Route element={<RequireAuth allowedRoles={['student', 'professor']} />}>
           <Route path="settings" element={<SettingsPage />} />

@@ -140,3 +140,81 @@ def process_purchase(user_id: int, item_id: int) -> dict[str, Any]:
         "new_balance": new_coins,
         "item": item,
     }
+
+
+def save_space_placements(user_id: int, placements: list[dict[str, Any]]) -> None:
+    """
+    Save space placements for a user.
+    
+    Clears old placements and saves the new ones.
+    placements: list of {slot_id, inventory_item_id}
+    """
+    sb = get_supabase()
+    
+    # First, clear all placements for this user's inventory items
+    inventory_result = (
+        sb.table("user_inventory")
+        .select("id")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    
+    inventory_ids = [row["id"] for row in (inventory_result.data or [])]
+    if inventory_ids:
+        sb.table("user_inventory").update({"placement": None}).in_("id", inventory_ids).execute()
+    
+    # Now save the new placements
+    for p in placements:
+        inv_id = p.get("inventory_item_id")
+        slot_id = p.get("slot_id")
+        if inv_id and slot_id:
+            sb.table("user_inventory").update(
+                {"placement": {"slot_id": slot_id}}
+            ).eq("id", int(inv_id)).eq("user_id", user_id).execute()
+
+
+def get_public_space(user_id: int) -> dict[str, Any] | None:
+    """
+    Get public view of a user's space.
+    
+    Returns user info and placed items, or None if user not found.
+    """
+    sb = get_supabase()
+    
+    # Get user info
+    try:
+        user_result = sb.table("users").select("id,display_name").eq("id", user_id).single().execute()
+    except:
+        return None
+    
+    user = user_result.data
+    if not user:
+        return None
+    
+    # Get inventory items with placements
+    inventory_result = (
+        sb.table("user_inventory")
+        .select("id,placement,shop_items(name,category,asset_url)")
+        .eq("user_id", user_id)
+        .not_.is_("placement", "null")
+        .execute()
+    )
+    
+    placements = []
+    for row in (inventory_result.data or []):
+        placement = row.get("placement", {})
+        shop_item = row.get("shop_items", {})
+        slot_id = placement.get("slot_id") if isinstance(placement, dict) else None
+        if slot_id:
+            placements.append({
+                "slot_id": slot_id,
+                "item_name": shop_item.get("name", ""),
+                "item_category": shop_item.get("category", ""),
+                "item_asset_url": shop_item.get("asset_url", ""),
+            })
+    
+    return {
+        "user_id": user["id"],
+        "display_name": user["display_name"],
+        "placements": placements,
+    }

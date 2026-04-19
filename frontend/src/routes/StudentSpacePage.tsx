@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { motion } from 'framer-motion'
+import { useMutation } from '@tanstack/react-query'
 import {
   DndContext,
   DragOverlay,
@@ -18,9 +19,11 @@ import type { FinnMood } from '@/components/finn/FinnMascot'
 import { FinnMascot } from '@/components/finn/FinnMascot'
 import { SimpleModal } from '@/components/ui/SimpleModal'
 import type { InventoryItemResponse } from '@/lib/api/shopSpaceApi'
+import { saveMySpace, type SpacePlacement } from '@/lib/api/shopSpaceApi'
 import type { SpaceSlot } from '@/lib/space/defaultLayout'
 import { useDefaultSpaceLayoutQuery, useShopInventoryQuery } from '@/lib/queries/shopSpaceQueries'
 import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const ITEM_ICONS: Record<string, string> = {
   'Cool Fox': '🦊',
@@ -120,6 +123,10 @@ export function StudentSpacePage() {
   const [activeSlot, setActiveSlot] = useState<SpaceSlot | null>(null)
   const [finnMood, setFinnMood] = useState<FinnMood>('neutral')
   const [draggedItem, setDraggedItem] = useState<InventoryItemResponse | null>(null)
+  const [shareStatus, setShareStatus] = useState<'idle' | 'saving' | 'copied'>('idle')
+
+  const token = useAuthStore((s) => s.token)
+  const user = useAuthStore((s) => s.user)
 
   const coins = useStudentEconomyStore((s) => s.coins)
   const slotPlacements = useStudentEconomyStore((s) => s.slotPlacements)
@@ -130,6 +137,35 @@ export function StudentSpacePage() {
 
   const layout = useDefaultSpaceLayoutQuery()
   const inventory = useShopInventoryQuery()
+
+  const saveMutation = useMutation({
+    mutationFn: async (placements: SpacePlacement[]) => {
+      if (!token) throw new Error('Not authenticated')
+      return saveMySpace(token, placements)
+    },
+  })
+
+  const handleShare = async () => {
+    if (!token || !user) return
+
+    setShareStatus('saving')
+
+    const placements: SpacePlacement[] = Object.entries(slotPlacements).map(([slot_id, invId]) => ({
+      slot_id,
+      inventory_item_id: invId ? parseInt(invId, 10) : null,
+    }))
+
+    try {
+      await saveMutation.mutateAsync(placements)
+      const shareUrl = `${window.location.origin}/space/${user.id}`
+      await navigator.clipboard.writeText(shareUrl)
+      setShareStatus('copied')
+      setFinnMood('celebrating')
+      setTimeout(() => setShareStatus('idle'), 2500)
+    } catch {
+      setShareStatus('idle')
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -234,6 +270,29 @@ export function StudentSpacePage() {
                 Clear all
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => void handleShare()}
+              disabled={shareStatus === 'saving'}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-10 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {shareStatus === 'saving' ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Saving...
+                </>
+              ) : shareStatus === 'copied' ? (
+                <>
+                  <span>✓</span>
+                  Link copied!
+                </>
+              ) : (
+                <>
+                  <span>🔗</span>
+                  Share Space
+                </>
+              )}
+            </button>
             <CoinCounter value={coins} />
           </div>
         </div>
