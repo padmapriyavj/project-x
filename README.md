@@ -3,9 +3,10 @@
 <p align="center">
   <img src="./frontend/public/mascot/mascot.png" height="200" />
 </p>
-An AI-powered learning platform that turns real coursework into a daily habit loop.
 
-Deductible helps professors publish high-quality lesson-aligned quizzes fast, and helps students stay engaged through timed Tempos, duels, confidence wagers, streaks, coins, a customizable Space, and Finn the Fox voice companion.
+<p align="center">An AI-powered learning platform that turns real coursework into a daily habit loop.</p>
+
+Deducto helps professors publish high-quality lesson-aligned quizzes fast, and helps students stay engaged through timed Tempos, duels, confidence wagers, streaks, coins, a customizable Space, and Finn the Fox voice companion.
 
 ---
 
