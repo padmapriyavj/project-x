@@ -48,6 +48,12 @@ export function QuizResultsPage() {
         </p>
         <p className="text-gold mt-3 font-mono text-lg">+{data.coinsEarned} coins</p>
         <p className="text-foreground/75 mt-3 text-sm">{data.betchaOutcome}</p>
+        {data.serverScoringFailed ? (
+          <p className="text-danger mt-4 text-sm" role="alert">
+            Your score was not saved on the server, so your coin balance was not updated. Try again or contact
+            support if this keeps happening.
+          </p>
+        ) : null}
       </Card>
 
       <Button type="button" onClick={() => navigate('/student')}>

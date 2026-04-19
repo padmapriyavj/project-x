@@ -10,6 +10,8 @@ import { StreakFlame } from '@/components/dashboard/StreakFlame'
 import type { FinnMood } from '@/components/finn/FinnMascot'
 import { FinnMascot } from '@/components/finn/FinnMascot'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Spinner } from '@/components/ui/Spinner'
+import { useStudentDashboardQuery } from '@/lib/queries/dashboardQueries'
 import { useCoursesQuery } from '@/lib/queries/courseQueries'
 import { playFinnGreeting } from '@/lib/voice/playFinnGreeting'
 import { useAuthStore } from '@/stores/authStore'
@@ -30,7 +32,8 @@ export function StudentDashboardPage() {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false)
 
   const user = useAuthStore((s) => s.user)
-  const courses = useCoursesQuery()
+  const dashboard = useStudentDashboardQuery()
+  const coursesFallback = useCoursesQuery()
   const coins = useStudentEconomyStore((s) => s.coins)
 
   const greeting = useMutation({
@@ -43,6 +46,9 @@ export function StudentDashboardPage() {
   const mood = moods[moodIndex] ?? 'neutral'
 
   const title = `Welcome${user?.display_name ? `, ${user.display_name}` : ''}`
+
+  const streakDays = dashboard.data?.user.current_streak ?? user?.current_streak ?? 0
+  const coinDisplay = dashboard.data?.user.coins ?? coins
 
   return (
     <div className="text-left">
@@ -58,8 +64,8 @@ export function StudentDashboardPage() {
 
       <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_auto] lg:items-start">
         <div className="order-2 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:order-1">
-          <StreakFlame days={user?.current_streak ?? 0} />
-          <CoinCounter value={coins} />
+          <StreakFlame days={streakDays} />
+          <CoinCounter value={coinDisplay} />
           <div className="flex items-stretch justify-center sm:justify-start">
             <StudentCoachCta />
           </div>
@@ -91,30 +97,62 @@ export function StudentDashboardPage() {
         <h2 className="font-heading text-foreground text-xl sm:text-2xl">Your courses</h2>
       </div>
 
-      {courses.isLoading ? (
-        <p className="text-foreground/70 text-sm">Loading your courses...</p>
-      ) : null}
-      {courses.isError ? (
-        <p className="text-danger text-sm">Could not load courses.</p>
+      {dashboard.isLoading ? <Spinner label="Loading dashboard…" /> : null}
+      {dashboard.isError ? (
+        <p className="text-danger mb-3 text-sm">
+          Dashboard API unavailable — showing your enrolled courses from the courses list instead.
+        </p>
       ) : null}
 
-      {courses.data ? (
-        courses.data.length > 0 ? (
-          <div className="space-y-4">
-            {courses.data.map((c) => (
-              <StudentCourseCard key={c.id} course={c} />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-surface shadow-soft border-divider/60 rounded-[var(--radius-lg)] border p-8 text-center sm:p-10">
-            <p className="text-foreground/70 mb-4 text-sm sm:text-base">
-              You haven&apos;t joined any courses yet.
-            </p>
-            <Button type="button" onClick={() => setIsJoinModalOpen(true)}>
-              Join your first course
-            </Button>
-          </div>
-        )
+      {dashboard.isSuccess && dashboard.data.courses.length > 0 ? (
+        <div className="space-y-4">
+          {dashboard.data.courses.map((c) => (
+            <StudentCourseCard key={c.id} course={{ id: c.id, name: c.name }} />
+          ))}
+        </div>
+      ) : null}
+
+      {dashboard.isSuccess && dashboard.data.courses.length === 0 && coursesFallback.data && coursesFallback.data.length > 0 ? (
+        <div className="space-y-4">
+          {coursesFallback.data.map((c) => (
+            <StudentCourseCard key={c.id} course={c} />
+          ))}
+        </div>
+      ) : null}
+
+      {dashboard.isError && coursesFallback.data && coursesFallback.data.length > 0 ? (
+        <div className="space-y-4">
+          {coursesFallback.data.map((c) => (
+            <StudentCourseCard key={c.id} course={c} />
+          ))}
+        </div>
+      ) : null}
+
+      {dashboard.isSuccess &&
+      dashboard.data.courses.length === 0 &&
+      (!coursesFallback.data || coursesFallback.data.length === 0) &&
+      !coursesFallback.isLoading ? (
+        <div className="bg-surface shadow-soft border-divider/60 rounded-[var(--radius-lg)] border p-8 text-center sm:p-10">
+          <p className="text-foreground/70 mb-4 text-sm sm:text-base">
+            You haven&apos;t joined any courses yet.
+          </p>
+          <Button type="button" onClick={() => setIsJoinModalOpen(true)}>
+            Join your first course
+          </Button>
+        </div>
+      ) : null}
+
+      {dashboard.isError &&
+      (!coursesFallback.data || coursesFallback.data.length === 0) &&
+      !coursesFallback.isLoading ? (
+        <div className="bg-surface shadow-soft border-divider/60 rounded-[var(--radius-lg)] border p-8 text-center sm:p-10">
+          <p className="text-foreground/70 mb-4 text-sm sm:text-base">
+            You haven&apos;t joined any courses yet.
+          </p>
+          <Button type="button" onClick={() => setIsJoinModalOpen(true)}>
+            Join your first course
+          </Button>
+        </div>
       ) : null}
 
       <JoinCourseModal

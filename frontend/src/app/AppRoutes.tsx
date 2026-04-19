@@ -49,7 +49,7 @@ export function AppRoutes() {
           <Route path="student/shop" element={<StudentShopPage />} />
           <Route path="student/space" element={<StudentSpacePage />} />
           <Route path="student/practice" element={<PracticeHubPage />} />
-          <Route path="student/practice/lobby/:lessonId" element={<PracticeLobbyPage />} />
+          <Route path="student/practice/lobby/:courseId" element={<PracticeLobbyPage />} />
           <Route path="student/quiz/:roomId/results" element={<QuizResultsPage />} />
           <Route path="student/quiz/:roomId" element={<QuizRunnerPage />} />
           <Route path="student/tempo/:instanceId" element={<TempoScreenPage />} />

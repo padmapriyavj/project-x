@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import secrets
 from decimal import Decimal
-from uuid import UUID
 
 from engagement.duels import repository as duel_repo
 from engagement.scoring.duel_settle import apply_duel_settlement
@@ -15,7 +14,7 @@ def _room_id() -> str:
     return secrets.token_urlsafe(12)[:50]
 
 
-def create_duel(*, quiz_id: UUID, host_user_id: UUID) -> dict:
+def create_duel(*, quiz_id: int, host_user_id: int) -> dict:
     quiz = get_quiz_row(quiz_id)
     if str(quiz.get("status") or "") != "published":
         raise ValueError("Quiz must be published")
@@ -24,25 +23,25 @@ def create_duel(*, quiz_id: UUID, host_user_id: UUID) -> dict:
     return {"room_id": room, "quiz_id": quiz_id, "status": "waiting"}
 
 
-def join_duel(*, room_id: str, user_id: UUID) -> dict:
+def join_duel(*, room_id: str, user_id: int) -> dict:
     row = duel_repo.get_duel_room(room_id)
     if not row:
         raise ValueError("Duel room not found")
     if str(row.get("status") or "") == "completed":
         raise ValueError("Duel already completed")
-    qid = UUID(str(row["quiz_id"]))
-    if str(row.get("host_user_id")) == str(user_id):
+    qid = int(row["quiz_id"])
+    if int(row.get("host_user_id")) == int(user_id):
         return {"room_id": room_id, "quiz_id": qid, "ok": True}
     return {"room_id": room_id, "quiz_id": qid, "ok": True}
 
 
-def create_duel_attempt(*, room_id: str, user_id: UUID) -> tuple[UUID, UUID]:
+def create_duel_attempt(*, room_id: str, user_id: int) -> tuple[int, int]:
     row = duel_repo.get_duel_room(room_id)
     if not row:
         raise ValueError("Duel room not found")
     if str(row.get("status") or "") == "completed":
         raise ValueError("Duel already completed")
-    qid = UUID(str(row["quiz_id"]))
+    qid = int(row["quiz_id"])
     aid = insert_quiz_attempt_stub(quiz_id=qid, user_id=user_id, mode="duel", room_id=room_id)
     return aid, qid
 
@@ -58,33 +57,33 @@ def mark_duel_active(room_id: str) -> None:
 def settle_duel(
     *,
     room_id: str,
-    attempt_a: UUID,
-    attempt_b: UUID,
+    attempt_a: int,
+    attempt_b: int,
     opponent_ante: int = 0,
-    acting_user_id: UUID | None = None,
+    acting_user_id: int | None = None,
 ) -> dict:
     d = duel_repo.get_duel_room(room_id)
     if not d:
         raise ValueError("Duel room not found")
     if str(d.get("status") or "") == "completed":
         raise ValueError("Duel already settled")
-    quiz_id = UUID(str(d["quiz_id"]))
+    quiz_id = int(d["quiz_id"])
 
     aa = get_attempt_row(attempt_a)
     bb = get_attempt_row(attempt_b)
     for att, label in ((aa, "a"), (bb, "b")):
-        if str(att.get("quiz_id")) != str(quiz_id):
+        if int(att.get("quiz_id")) != quiz_id:
             raise ValueError(f"attempt_{label} does not match duel quiz")
         if str(att.get("mode") or "") != "duel":
             raise ValueError(f"attempt_{label} is not a duel attempt")
         if not att.get("completed_at"):
             raise ValueError(f"attempt_{label} is not finalized (score first)")
 
-    ua = UUID(str(aa["user_id"]))
-    ub = UUID(str(bb["user_id"]))
+    ua = int(aa["user_id"])
+    ub = int(bb["user_id"])
     if ua == ub:
         raise ValueError("Attempts must be from two different users")
-    if acting_user_id is not None and acting_user_id not in (ua, ub):
+    if acting_user_id is not None and int(acting_user_id) not in (ua, ub):
         raise ValueError("Caller must be one of the duel participants")
 
     sa = Decimal(str(aa.get("score_pct") or "0"))
@@ -102,7 +101,7 @@ def settle_duel(
         elif cb > ca:
             winner, loser = ub, ua
         else:
-            host = UUID(str(d["host_user_id"]))
+            host = int(d["host_user_id"])
             winner, loser = (host, ub if host == ua else ua)
 
     out = apply_duel_settlement(

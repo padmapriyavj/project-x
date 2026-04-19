@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-from uuid import UUID
-
 from pydantic import BaseModel, Field
 
 
 class DuelCreateBody(BaseModel):
     """Create a duel lobby for a published quiz (typically ``type=practice``)."""
 
-    quiz_id: UUID
+    quiz_id: int
 
 
 class DuelCreateResponse(BaseModel):
     room_id: str
-    quiz_id: UUID
+    quiz_id: int
     status: str
     realtime: dict = Field(
         default_factory=lambda: {
@@ -26,25 +24,25 @@ class DuelCreateResponse(BaseModel):
 
 class DuelJoinResponse(BaseModel):
     room_id: str
-    quiz_id: UUID
+    quiz_id: int
     ok: bool = True
 
 
 class DuelAttemptResponse(BaseModel):
-    attempt_id: UUID
+    attempt_id: int
     room_id: str
-    quiz_id: UUID
+    quiz_id: int
 
 
 class DuelSettleBody(BaseModel):
-    attempt_a: UUID
-    attempt_b: UUID
+    attempt_a: int
+    attempt_b: int
     opponent_ante: int = Field(default=0, ge=0, le=10_000)
 
 
 class DuelSettleResponse(BaseModel):
-    winner_user_id: UUID
-    loser_user_id: UUID
+    winner_user_id: int
+    loser_user_id: int
     winner_duel_coins: int
     loser_duel_coins: int
     settled: bool = True

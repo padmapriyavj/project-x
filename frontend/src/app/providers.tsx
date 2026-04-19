@@ -1,9 +1,16 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, type ReactNode } from 'react'
 
+import { ScoringProfileSync } from '@/components/engagement/ScoringProfileSync'
 import { Spinner } from '@/components/ui/Spinner'
+import { useTempoFireListener } from '@/hooks/useTempoFireListener'
 import { queryClient } from '@/lib/queryClient'
 import { useAuthStore } from '@/stores/authStore'
+
+function StudentTempoFireBridge() {
+  useTempoFireListener()
+  return null
+}
 
 function AuthInitializer({ children }: { children: ReactNode }) {
   const initialize = useAuthStore((s) => s.initialize)
@@ -26,7 +33,13 @@ function AuthInitializer({ children }: { children: ReactNode }) {
     )
   }
 
-  return <>{children}</>
+  return (
+    <>
+      <ScoringProfileSync />
+      <StudentTempoFireBridge />
+      {children}
+    </>
+  )
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {

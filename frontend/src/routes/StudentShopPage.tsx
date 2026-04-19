@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 
@@ -8,49 +8,74 @@ import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SimpleModal } from '@/components/ui/SimpleModal'
 import { Spinner } from '@/components/ui/Spinner'
-import type { ShopCatalogItem, ShopCategory } from '@/lib/mocks/shopCatalog'
+import type { ShopItemResponse } from '@/lib/api/shopSpaceApi'
+import { postShopPurchase } from '@/lib/api/shopSpaceApi'
 import { queryKeys } from '@/lib/queryKeys'
-import { fetchShopCatalogMock } from '@/lib/queries/shopSpaceQueries'
+import { useShopCatalogQuery, useShopInventoryQuery } from '@/lib/queries/shopSpaceQueries'
+import { useAuthStore } from '@/stores/authStore'
 import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
 
-const filters: Array<{ id: 'all' | ShopCategory; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'decor', label: 'Decor' },
-  { id: 'desk', label: 'Desk' },
-  { id: 'plant', label: 'Plants' },
-]
+const CATEGORY_FILTERS = [
+  { id: 'all' as const, label: 'All' },
+  { id: 'finn_skin', label: 'Finn skins' },
+  { id: 'space_item', label: 'Space' },
+  { id: 'backdrop', label: 'Backdrops' },
+  { id: 'streak_freeze', label: 'Streak freeze' },
+] as const
+
+type FilterId = (typeof CATEGORY_FILTERS)[number]['id']
 
 export function StudentShopPage() {
-  const [filter, setFilter] = useState<(typeof filters)[number]['id']>('all')
-  const [confirmItem, setConfirmItem] = useState<ShopCatalogItem | null>(null)
+  const [filter, setFilter] = useState<FilterId>('all')
+  const [confirmItem, setConfirmItem] = useState<ShopItemResponse | null>(null)
   const [purchaseError, setPurchaseError] = useState<string | null>(null)
 
+  const token = useAuthStore((s) => s.token)
+  const patchUser = useAuthStore((s) => s.patchUser)
   const coins = useStudentEconomyStore((s) => s.coins)
-  const inventoryCounts = useStudentEconomyStore((s) => s.inventoryCounts)
-  const purchase = useStudentEconomyStore((s) => s.purchase)
+  const setCoinsFromBackend = useStudentEconomyStore((s) => s.setCoinsFromBackend)
+  const queryClient = useQueryClient()
 
-  const catalog = useQuery({
-    queryKey: queryKeys.shopCatalog,
-    queryFn: fetchShopCatalogMock,
+  const catalog = useShopCatalogQuery(filter === 'all' ? null : filter)
+  const inventory = useShopInventoryQuery()
+
+  const ownedByShopItemId = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const row of inventory.data ?? []) {
+      m.set(row.shop_item_id, (m.get(row.shop_item_id) ?? 0) + 1)
+    }
+    return m
+  }, [inventory.data])
+
+  const purchaseMut = useMutation({
+    mutationFn: async (item: ShopItemResponse) => {
+      if (!token) throw new Error('Sign in to purchase.')
+      return postShopPurchase(token, item.id)
+    },
+    onSuccess: (res) => {
+      setCoinsFromBackend(res.new_balance)
+      patchUser({ coins: res.new_balance })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.shopInventory })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.scoringMe })
+      setConfirmItem(null)
+      setPurchaseError(null)
+    },
+    onError: (e) => {
+      setPurchaseError(e instanceof Error ? e.message : 'Purchase failed.')
+    },
   })
-
-  const items = useMemo(() => {
-    const list = catalog.data ?? []
-    if (filter === 'all') return list
-    return list.filter((i) => i.category === filter)
-  }, [catalog.data, filter])
 
   const tryPurchase = () => {
     if (!confirmItem) return
     setPurchaseError(null)
-    if (coins < confirmItem.price) {
+    if (coins < confirmItem.price_coins) {
       setPurchaseError('Not enough coins for this item.')
       return
     }
-    const ok = purchase(confirmItem.id, confirmItem.price)
-    if (!ok) setPurchaseError('Purchase failed.')
-    else setConfirmItem(null)
+    purchaseMut.mutate(confirmItem)
   }
+
+  const items = catalog.data ?? []
 
   return (
     <section className="text-left">
@@ -60,7 +85,7 @@ export function StudentShopPage() {
           title="Shop and inventory"
           description={
             <>
-              Mock storefront — coins and owned items persist in this browser.{' '}
+              Spend coins on items from the server catalog.{' '}
               <Link to="/student/space" className="text-primary font-medium underline-offset-2 hover:underline">
                 Open your space
               </Link>{' '}
@@ -81,7 +106,7 @@ export function StudentShopPage() {
       ) : null}
 
       <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Filter by category">
-        {filters.map((f) => (
+        {CATEGORY_FILTERS.map((f) => (
           <button
             key={f.id}
             type="button"
@@ -105,27 +130,27 @@ export function StudentShopPage() {
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => {
-          const owned = inventoryCounts[item.id] ?? 0
+          const owned = ownedByShopItemId.get(item.id) ?? 0
           return (
             <li key={item.id}>
               <Card padding="md" className="flex h-full flex-col">
                 <p className="text-foreground/60 text-xs uppercase tracking-wide">{item.category}</p>
                 <h2 className="font-heading mt-1 text-lg">{item.name}</h2>
-                <p className="text-foreground/75 mt-2 flex-1 text-sm">{item.description}</p>
+                <p className="text-foreground/75 mt-2 flex-1 text-sm capitalize">{item.rarity} rarity</p>
                 <p className="text-foreground mt-3 font-mono text-sm">
-                  {item.price} coins {owned > 0 ? `· owned ×${owned}` : null}
+                  {item.price_coins} coins {owned > 0 ? `· owned ×${owned}` : null}
                 </p>
                 <Button
                   type="button"
                   className="mt-3"
                   fullWidth
-                  disabled={coins < item.price}
+                  disabled={coins < item.price_coins || purchaseMut.isPending}
                   onClick={() => {
                     setPurchaseError(null)
                     setConfirmItem(item)
                   }}
                 >
-                  {coins < item.price ? 'Not enough coins' : 'Buy'}
+                  {coins < item.price_coins ? 'Not enough coins' : 'Buy'}
                 </Button>
               </Card>
             </li>
@@ -135,22 +160,27 @@ export function StudentShopPage() {
 
       <div className="border-divider mt-10 border-t pt-6">
         <h2 className="font-heading mb-3 text-lg">Inventory</h2>
-        {catalog.data ? (
+        {inventory.isLoading ? <Spinner label="Loading inventory…" /> : null}
+        {inventory.isError ? (
+          <p className="text-danger text-sm" role="alert">
+            Could not load your inventory.
+          </p>
+        ) : null}
+        {inventory.data && inventory.data.length > 0 ? (
           <ul className="space-y-2 text-sm">
-            {catalog.data.map((item) => {
-              const n = inventoryCounts[item.id] ?? 0
-              if (n <= 0) return null
+            {Array.from(ownedByShopItemId.entries()).map(([shopId, n]) => {
+              const label =
+                inventory.data?.find((r) => r.shop_item_id === shopId)?.name ?? `Item #${shopId}`
               return (
-                <li key={item.id} className="text-foreground/85 flex justify-between gap-2">
-                  <span>{item.name}</span>
+                <li key={shopId} className="text-foreground/85 flex justify-between gap-2">
+                  <span>{label}</span>
                   <span className="font-mono">×{n}</span>
                 </li>
               )
             })}
           </ul>
         ) : null}
-        {catalog.isSuccess &&
-        catalog.data?.every((item) => (inventoryCounts[item.id] ?? 0) <= 0) ? (
+        {inventory.isSuccess && (inventory.data?.length ?? 0) === 0 ? (
           <p className="text-foreground/70 text-sm">You do not own any items yet.</p>
         ) : null}
       </div>
@@ -176,7 +206,7 @@ export function StudentShopPage() {
           <>
             <p className="text-foreground/85 text-sm">
               Buy <strong>{confirmItem.name}</strong> for{' '}
-              <span className="font-mono">{confirmItem.price}</span> coins?
+              <span className="font-mono">{confirmItem.price_coins}</span> coins?
             </p>
             {purchaseError ? (
               <p className="text-danger mt-3 text-sm" role="alert">
@@ -184,8 +214,8 @@ export function StudentShopPage() {
               </p>
             ) : null}
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <Button type="button" variant="secondary" onClick={tryPurchase}>
-                Confirm
+              <Button type="button" variant="secondary" onClick={tryPurchase} disabled={purchaseMut.isPending}>
+                {purchaseMut.isPending ? 'Purchasing…' : 'Confirm'}
               </Button>
               <Button
                 type="button"

@@ -40,11 +40,30 @@ export const mockQuizQuestions: MockQuestion[] = [
   },
 ]
 
+/** When set, quiz runner calls scoring / Betcha APIs (requires real ``quiz_attempts`` row). */
+export type QuizRunApiContext = {
+  quizId: string
+  attemptId: string
+}
+
+/** Socket.IO ``/quiz-room`` session (``room:join`` + server-driven questions). */
+export type QuizRealtimeContext = {
+  quizId: string
+  mode: QuizRunMode
+  attemptId?: string
+}
+
 export type QuizRunLocationState = {
   mode: QuizRunMode
   betcha: BetchaMultiplier
   lessonId: string
   courseName?: string
+  /** Optional server-backed quiz session */
+  api?: QuizRunApiContext
+  /** Betcha stake when using ``api`` (server accepts 50, 100, or 200). */
+  stakeCoins?: 50 | 100 | 200
+  /** Live quiz room (duel / tempo / practice with backend). */
+  realtime?: QuizRealtimeContext
 }
 
 export type QuizResultsLocationState = {
@@ -54,4 +73,6 @@ export type QuizResultsLocationState = {
   totalQuestions: number
   coinsEarned: number
   betchaOutcome: string
+  /** Server scoring/Betcha failed; coins shown may not match your profile. */
+  serverScoringFailed?: boolean
 }

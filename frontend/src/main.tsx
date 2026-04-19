@@ -12,10 +12,10 @@ import { AppRoutes } from '@/app/AppRoutes'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppProviders>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AppProviders>
         <AppRoutes />
-      </BrowserRouter>
-    </AppProviders>
+      </AppProviders>
+    </BrowserRouter>
   </StrictMode>,
 )

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { EventAccordion, type CompletedEvent } from '@/components/courses/EventAccordion'
@@ -6,42 +6,52 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
-import { listLessons, listTempos, seedCourseDemoAlerts } from '@/lib/courseContentLocal'
+import { useStudentDashboardQuery } from '@/lib/queries/dashboardQueries'
+import { useJoinableTemposQuery, useUpcomingTemposQuery } from '@/lib/queries/tempoQueries'
 import { useCourseQuery } from '@/lib/queries/courseQueries'
+import { useLessonsQuery } from '@/lib/queries/lessonQueries'
 import { useAuthStore } from '@/stores/authStore'
-
-const demoCompleted = (courseName: string): CompletedEvent[] => [
-  {
-    id: '1',
-    title: 'Practice quiz',
-    date: new Date().toLocaleDateString(),
-    attempted: 10,
-    correct: 7,
-    wrong: 3,
-    coins: 42,
-    betcha: '3× (fallback to 1×)',
-    concepts: ['Sorting', 'Big-O'],
-  },
-  {
-    id: '2',
-    title: `${courseName} — warm-up`,
-    date: new Date(Date.now() - 86400000 * 3).toLocaleDateString(),
-    attempted: 5,
-    correct: 5,
-    wrong: 0,
-    coins: 80,
-    betcha: '1×',
-    concepts: ['Arrays'],
-  },
-]
 
 export function StudentCoursePage() {
   const { courseId } = useParams<{ courseId: string }>()
   const id = parseInt(courseId ?? '', 10)
   const navigate = useNavigate()
-  const user = useAuthStore((s) => s.user)
+  const token = useAuthStore((s) => s.token)
 
   const course = useCourseQuery(id)
+  const lessonsQuery = useLessonsQuery(id)
+  const dashboard = useStudentDashboardQuery()
+  const temposScheduledQuery = useUpcomingTemposQuery(token)
+  const temposJoinableQuery = useJoinableTemposQuery(token)
+
+  const courseDash = useMemo(
+    () => dashboard.data?.courses.find((c) => c.id === id),
+    [dashboard.data?.courses, id],
+  )
+
+  const lessons = lessonsQuery.data ?? []
+
+  const scheduledTempos = useMemo(() => {
+    const rows = temposScheduledQuery.data ?? []
+    return rows.filter((r) => String(r.course_id) === String(id))
+  }, [temposScheduledQuery.data, id])
+
+  const joinableTempos = useMemo(() => {
+    const rows = temposJoinableQuery.data ?? []
+    return rows.filter((r) => String(r.course_id) === String(id))
+  }, [temposJoinableQuery.data, id])
+
+  const completedEvents: CompletedEvent[] = (courseDash?.completed_events ?? []).map((e) => ({
+    id: e.id,
+    title: e.title,
+    date: '—',
+    attempted: e.attempted,
+    correct: e.correct,
+    wrong: e.wrong,
+    coins: e.coins,
+    betcha: e.betcha ?? '—',
+    concepts: e.concepts,
+  }))
 
   if (course.isLoading) {
     return <Spinner label="Loading course..." />
@@ -62,15 +72,19 @@ export function StudentCoursePage() {
   }
 
   const c = course.data
+  const upcoming: { id: string; line: string }[] = courseDash?.upcoming_events?.length
+    ? courseDash.upcoming_events.map((e) => ({
+        id: e.id,
+        line: `${e.title} — ${e.date}`,
+      }))
+    : scheduledTempos.map((t) => ({
+        id: String(t.id),
+        line: `Tempo — ${t.scheduled_at ? new Date(String(t.scheduled_at)).toLocaleString() : 'scheduled'}`,
+      }))
 
-  useEffect(() => {
-    seedCourseDemoAlerts(c.id, c.name)
-  }, [c.id, c.name])
-
-  const tempos = listTempos(c.id)
-  const liveTempo = tempos.find((t) => t.status === 'live')
-  const upcoming = tempos.filter((t) => t.status === 'scheduled')
-  const lessons = listLessons(c.id)
+  const testsTaken = courseDash?.tests_taken ?? 0
+  const courseCoins = courseDash?.coins_earned ?? 0
+  const weakConcept = courseDash?.top_weak_concept ?? '—'
 
   return (
     <div className="text-left">
@@ -100,28 +114,59 @@ export function StudentCoursePage() {
         }
       />
 
-      {liveTempo ? (
+      {joinableTempos.length > 0 ? (
         <Card padding="md" className="border-secondary/40 mb-6 border-2 bg-secondary/5">
-          <p className="text-foreground font-medium">Tempo in progress</p>
-          <p className="text-foreground/70 mt-1 text-sm">A Tempo window is open — join now.</p>
-          <Button type="button" className="mt-3" onClick={() => navigate(`/student/tempo/${liveTempo.id}`)}>
-            Open Tempo
-          </Button>
+          <p className="text-foreground font-medium">Live Tempos</p>
+          <p className="text-foreground/70 mt-1 text-sm">
+            These sessions have reached their scheduled start (or have no start time). Open to place Betcha and join
+            the quiz room.
+          </p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {joinableTempos.map((t) => (
+              <li key={String(t.id)}>
+                <button
+                  type="button"
+                  className="text-primary font-mono text-left underline-offset-2 hover:underline"
+                  onClick={() =>
+                    navigate(`/student/tempo/${encodeURIComponent(String(t.id))}`, {
+                      state: { courseName: c.name, courseId: c.id },
+                    })
+                  }
+                >
+                  Join quiz {String(t.id)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      {scheduledTempos.length > 0 ? (
+        <Card padding="md" className="mb-6">
+          <p className="text-foreground font-medium">Scheduled Tempos</p>
+          <p className="text-foreground/70 mt-1 text-sm">Starts at the time shown — the Join button appears here once that time arrives.</p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {scheduledTempos.map((t) => (
+              <li key={String(t.id)} className="text-foreground/80 font-mono">
+                Quiz {String(t.id)} — {t.scheduled_at ? new Date(String(t.scheduled_at)).toLocaleString() : 'scheduled'}
+              </li>
+            ))}
+          </ul>
         </Card>
       ) : null}
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card padding="md">
           <p className="text-foreground/60 text-xs uppercase">Tests taken</p>
-          <p className="font-heading text-foreground mt-1 text-2xl">3</p>
+          <p className="font-heading text-foreground mt-1 text-2xl">{testsTaken}</p>
         </Card>
         <Card padding="md">
           <p className="text-foreground/60 text-xs uppercase">Coins (course)</p>
-          <p className="font-heading text-gold mt-1 text-2xl">{user?.coins ?? 0}</p>
+          <p className="font-heading text-gold mt-1 text-2xl">{courseCoins}</p>
         </Card>
         <Card padding="md">
           <p className="text-foreground/60 text-xs uppercase">Top weak concept</p>
-          <p className="text-foreground mt-1 text-sm font-medium">Recursion</p>
+          <p className="text-foreground mt-1 text-sm font-medium">{weakConcept}</p>
         </Card>
       </div>
 
@@ -167,7 +212,11 @@ export function StudentCoursePage() {
 
       <section className="mb-8">
         <h2 className="font-heading text-foreground mb-3 text-lg">Lessons</h2>
-        {lessons.length === 0 ? (
+        {lessonsQuery.isLoading ? <Spinner label="Loading lessons..." /> : null}
+        {lessonsQuery.isError ? (
+          <p className="text-danger text-sm">Could not load lessons.</p>
+        ) : null}
+        {lessons.length === 0 && !lessonsQuery.isLoading ? (
           <p className="text-foreground/70 text-sm">Your professor has not published lessons yet.</p>
         ) : (
           <ul className="space-y-2">
@@ -177,7 +226,7 @@ export function StudentCoursePage() {
                   to={`/student/course/${c.id}/lesson/${l.id}`}
                   className="border-divider bg-surface hover:border-primary/40 block rounded-[var(--radius-md)] border px-4 py-3 text-sm font-medium transition-colors"
                 >
-                  Week {l.weekNumber}: {l.title}
+                  Week {l.week_number}: {l.title}
                 </Link>
               </li>
             ))}
@@ -193,7 +242,7 @@ export function StudentCoursePage() {
           <ul className="space-y-2 text-sm">
             {upcoming.map((t) => (
               <li key={t.id} className="text-foreground/80">
-                Tempo — {new Date(t.scheduledAt).toLocaleString()}
+                {t.line}
               </li>
             ))}
           </ul>
@@ -202,7 +251,7 @@ export function StudentCoursePage() {
 
       <section>
         <h2 className="font-heading text-foreground mb-3 text-lg">Completed events</h2>
-        <EventAccordion events={demoCompleted(c.name)} />
+        <EventAccordion events={completedEvents} />
       </section>
     </div>
   )

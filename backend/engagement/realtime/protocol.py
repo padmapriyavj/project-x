@@ -187,7 +187,8 @@ def protocol_contract() -> dict[str, Any]:
         "socketio_path": f"/{SOCKETIO_PATH}/",
         "connection": {
             "auth": {
-                "user_id": "UUID string — required; do not trust a separate user id in payloads.",
+                "token": "JWT access token (preferred); validated server-side.",
+                "user_id": "Fallback identity string for dev only (not validated).",
             },
             "query": {
                 "user_id": "Fallback for clients that cannot set auth (dev only).",

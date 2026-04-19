@@ -2,7 +2,6 @@
 
 from decimal import Decimal
 from typing import Literal
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -10,13 +9,13 @@ StakeCoins = Literal[50, 100, 200]
 
 
 class PlaceBetchaBody(BaseModel):
-    attempt_id: UUID = Field(description="Quiz attempt row to attach the wager to")
+    attempt_id: int = Field(description="Quiz attempt row to attach the wager to")
     multiplier: Literal["1x", "3x", "5x"]
     stake_coins: StakeCoins
 
 
 class PlaceBetchaResponse(BaseModel):
-    attempt_id: UUID
+    attempt_id: int
     multiplier: str
     stake_coins: int
     coins_balance_after: int
@@ -30,7 +29,7 @@ class FinalizeBetchaBody(BaseModel):
 
 
 class FinalizeBetchaResponse(BaseModel):
-    attempt_id: UUID
+    attempt_id: int
     betcha_applied: bool
     payout_coins: int = None
     effective_factor: int = None

@@ -11,6 +11,8 @@ from uuid import UUID
 import socketio
 from pydantic import ValidationError
 
+from app_platform.auth.security import decode_access_token
+from jose import JWTError
 from engagement.realtime.protocol import (
     NAMESPACE,
     QuizAnswerPayload,
@@ -37,6 +39,16 @@ def _err(code: str, message: str, detail: dict[str, Any] | None = None) -> dict[
     return RoomErrorPayload(code=code, message=message, detail=detail).model_dump(mode="json")
 
 
+def _session_user_id_to_int(user_id: str) -> int:
+    """Map Socket session user id (JWT ``sub`` as digits, or legacy UUID(int=pk) string) to ``users.id``."""
+    s = (user_id or "").strip()
+    if not s:
+        raise ValueError("empty user id")
+    if s.isdigit():
+        return int(s)
+    return int(UUID(s).int)
+
+
 class QuizRealtimeService:
     """Shared by Socket.IO handlers; one instance per process."""
 
@@ -50,6 +62,15 @@ class QuizRealtimeService:
         uid = auth.get("user_id")
         if uid:
             return str(uid)
+        token = auth.get("token")
+        if token and isinstance(token, str) and token.strip():
+            try:
+                payload = decode_access_token(token.strip())
+                sub = payload.get("sub")
+                if sub is not None and str(sub).strip():
+                    return str(sub).strip()
+            except JWTError:
+                pass
         q = environ.get("QUERY_STRING") or ""
         qs = parse_qs(q)
         if qs.get("user_id"):
@@ -95,7 +116,7 @@ class QuizRealtimeService:
 
         async with self._lock:
             try:
-                quiz = get_quiz_row(UUID(body.quiz_id))
+                quiz = get_quiz_row(int(body.quiz_id))
             except Exception:
                 await self.sio.emit(
                     ServerEvent.ROOM_ERROR.value,
@@ -114,7 +135,7 @@ class QuizRealtimeService:
                 )
                 return
 
-            questions = list_questions(UUID(body.quiz_id))
+            questions = list_questions(int(body.quiz_id))
             if not questions:
                 await self.sio.emit(
                     ServerEvent.ROOM_ERROR.value,
@@ -172,8 +193,8 @@ class QuizRealtimeService:
                 else:
                     try:
                         aid = ensure_attempt_stub(
-                            quiz_id=UUID(body.quiz_id),
-                            user_id=UUID(user_id),
+                            quiz_id=int(body.quiz_id),
+                            user_id=_session_user_id_to_int(user_id),
                             mode=body.mode,
                             room_id=body.room_id,
                         )

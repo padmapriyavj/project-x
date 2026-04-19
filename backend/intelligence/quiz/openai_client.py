@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 from typing import Any
-from uuid import UUID
 
 from openai import OpenAI
 
@@ -54,7 +53,7 @@ def _question_item_schema() -> dict[str, Any]:
             },
             "concept_id": {
                 "type": "string",
-                "description": "UUID string matching the concept for this question.",
+                "description": "String form of the integer concept id for this question.",
             },
             "difficulty": {
                 "type": "string",
@@ -104,7 +103,7 @@ _QUIZ_EXAMPLE_BLOCK = """
         {"key": "D", "text": "O(1)"}
       ],
       "correct_choice": "B",
-      "concept_id": "00000000-0000-0000-0000-000000000000",
+      "concept_id": "42",
       "difficulty": "medium"
     }
   ]
@@ -115,7 +114,7 @@ Rules:
 - Top-level key must be exactly `"questions"` (array).
 - Each question has exactly four `choices` with keys A, B, C, D (each key once).
 - `correct_choice` must equal one of the choice keys.
-- `concept_id` must be the UUID string from the assignment line for that row.
+- `concept_id` must be the string form of the concept id from the assignment line for that row.
 - `difficulty` must be exactly `"easy"`, `"medium"`, or `"hard"` as assigned.
 """
 
@@ -126,10 +125,14 @@ def generate_mcq_batch(
     concept_specs: list[dict[str, Any]],
     allocations: list[tuple[str, Difficulty]],
     model: str = "gpt-4o-mini",
+    temperature: float = 0.4,
+    extra_user_instructions: str | None = None,
 ) -> list[QuestionDraft]:
     """
     ``concept_specs``: ``[{id, name, description}, ...]``
     ``allocations``: ordered list of (concept_id str, difficulty) per question index.
+    ``temperature``: sampling temperature for the model (batch generation defaults to 0.4).
+    ``extra_user_instructions``: optional text appended to the user message (e.g. regeneration constraints).
     """
     n = len(allocations)
     spec_lines = "\n".join(
@@ -152,10 +155,12 @@ def generate_mcq_batch(
         f"Required question sequence — produce EXACTLY {n} questions in this order (line 1 = questions[0], etc.):\n"
         f"{alloc_lines}\n"
     )
+    if extra_user_instructions:
+        user += extra_user_instructions
 
     resp = _client().chat.completions.create(
         model=model,
-        temperature=0.4,
+        temperature=temperature,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -181,7 +186,7 @@ def generate_mcq_batch(
                 text=str(item["text"]),
                 choices=choices,
                 correct_choice=cc,
-                concept_id=UUID(cid_req),
+                concept_id=int(cid_req),
                 difficulty=diff_req,
             )
         )
@@ -200,12 +205,26 @@ def regenerate_single_mcq(
     concept_id: str,
     difficulty: Difficulty,
     model: str = "gpt-4o-mini",
+    previous_question_text: str | None = None,
 ) -> QuestionDraft:
+    extra: str | None = None
+    if previous_question_text and previous_question_text.strip():
+        prev = previous_question_text.strip()[:4000]
+        extra = (
+            "\n\n--- REGENERATION ---\n"
+            "The professor asked to replace the question below. Write a NEW multiple-choice question "
+            "for the same concept_id and difficulty as assigned above. "
+            "The stem and all four options must be substantially different—different wording and a "
+            "different angle or scenario—not a minor rephrase of the old question.\n\n"
+            f"Previous question (do not repeat or lightly paraphrase):\n{prev}\n"
+        )
     return generate_mcq_batch(
         context_text=context_text,
         concept_specs=concept_specs,
         allocations=[(concept_id, difficulty)],
         model=model,
+        temperature=0.7,
+        extra_user_instructions=extra,
     )[0]
 
 

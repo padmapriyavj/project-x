@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import type { components } from '@/lib/api/schema'
 import { fetchCurrentUser } from '@/lib/authApi'
 
-export type UserPublic = components['schemas']['UserPublic'] & {
+export type UserPublic = components['schemas']['UserResponse'] & {
   avatar_config?: Record<string, unknown>
   coins?: number
   current_streak?: number
@@ -20,6 +20,8 @@ type AuthState = {
   isInitialized: boolean
   setAuth: (token: string, user: UserPublic) => void
   clearAuth: () => void
+  /** Merge fields into cached ``user`` (e.g. after ``GET /scoring/me``). */
+  patchUser: (partial: Partial<UserPublic>) => void
   initialize: () => Promise<void>
   refreshUser: () => Promise<void>
   _setHydrated: () => void
@@ -45,6 +47,11 @@ export const useAuthStore = create<AuthState>()(
         user: null, 
         isInitialized: true,
       }),
+
+      patchUser: (partial) =>
+        set((s) => ({
+          user: s.user ? { ...s.user, ...partial } : null,
+        })),
       
       initialize: async () => {
         const { isInitialized, isHydrated } = get()

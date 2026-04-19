@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from postgrest.exceptions import APIError
 
 from intelligence.betcha.client import get_supabase
 
 
-def _uuid_str(u: UUID) -> str:
-    return str(u)
-
-
 def apply_mastery_for_attempt(
-    user_id: UUID,
-    concept_results: list[tuple[UUID, bool]],
+    user_id: int,
+    concept_results: list[tuple[int, bool]],
 ) -> None:
     """
     Upsert ``user_concept_mastery`` for each concept seen on this attempt.
@@ -28,8 +23,9 @@ def apply_mastery_for_attempt(
         return
 
     sb = get_supabase()
+    uid_pk = int(user_id)
     for concept_id, ok in concept_results:
-        cid = _uuid_str(concept_id)
+        cid = int(concept_id)
         prev_a = 0
         prev_c = 0
         had_existing = False
@@ -37,8 +33,8 @@ def apply_mastery_for_attempt(
             ex = (
                 sb.table("user_concept_mastery")
                 .select("attempts,correct")
-                .eq("user_id", _uuid_str(user_id))
-                .eq("concept_id", cid)
+                .eq("user_id", uid_pk)
+                .eq("concept_id", int(cid))
                 .limit(1)
                 .execute()
             )
@@ -54,7 +50,7 @@ def apply_mastery_for_attempt(
         mastery_score = round(100.0 * correct / attempts, 2) if attempts else 0.0
 
         row: dict[str, Any] = {
-            "user_id": _uuid_str(user_id),
+            "user_id": uid_pk,
             "concept_id": cid,
             "attempts": attempts,
             "correct": correct,
@@ -65,7 +61,7 @@ def apply_mastery_for_attempt(
             if had_existing:
                 sb.table("user_concept_mastery").update(
                     {"attempts": attempts, "correct": correct, "mastery_score": mastery_score}
-                ).eq("user_id", _uuid_str(user_id)).eq("concept_id", cid).execute()
+                ).eq("user_id", uid_pk).eq("concept_id", cid).execute()
             else:
                 sb.table("user_concept_mastery").insert(row).execute()
         except APIError:

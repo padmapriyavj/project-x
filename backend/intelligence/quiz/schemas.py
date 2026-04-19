@@ -2,7 +2,6 @@
 
 from decimal import Decimal
 from typing import Literal
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -12,7 +11,7 @@ Difficulty = Literal["easy", "medium", "hard"]
 
 
 class ConceptWeight(BaseModel):
-    concept_id: UUID
+    concept_id: int
     """Weight as percent (0–100); snapshot only, not stored on concepts row."""
 
     weight: Decimal = Field(ge=0, le=100)
@@ -34,13 +33,13 @@ class DifficultyWeights(BaseModel):
 class KnowledgeBaseRef(BaseModel):
     """Optional pointer for chunk ranges; may be empty when using lesson_ids only."""
 
-    material_id: UUID | None = None
+    material_id: int | None = None
     chunk_start: int | None = None
     chunk_end: int | None = None
 
 
 class QuizGenerationConfig(BaseModel):
-    lesson_ids: list[UUID] = Field(min_length=1)
+    lesson_ids: list[int] = Field(min_length=1)
     concepts: list[ConceptWeight] = Field(min_length=1)
     difficulty_weights: DifficultyWeights
     num_questions: int = Field(ge=1, le=100)
@@ -59,7 +58,7 @@ class QuizGenerationConfig(BaseModel):
 class QuizGenerateRequest(BaseModel):
     """Body for POST /quizzes/generate."""
 
-    course_id: UUID
+    course_id: int = Field(gt=0, description="``courses.id`` (bigint)")
     config: QuizGenerationConfig
     quiz_type: QuizType = "practice"
 
@@ -73,39 +72,35 @@ class QuestionDraft(BaseModel):
     text: str
     choices: list[ChoiceItem]
     correct_choice: str
-    concept_id: UUID
+    concept_id: int
     difficulty: Difficulty
 
 
 class QuizGenerateResponse(BaseModel):
-    quiz_id: UUID
+    quiz_id: int
     status: str
     questions: list[dict]
 
 
-class QuestionRegenerateRequest(BaseModel):
-    config: QuizGenerationConfig | None = None
-
-
 class QuestionPublic(BaseModel):
-    id: UUID
-    quiz_id: UUID
+    id: int
+    quiz_id: int
     question_order: int
     text: str
     choices: list[dict]
     correct_choice: str
-    concept_id: UUID
+    concept_id: int
     difficulty: str
     approved: bool
     generation_metadata: dict | None = None
 
 
 class QuizPublic(BaseModel):
-    id: UUID
+    id: int
     type: str
-    lesson_id: UUID | None
-    course_id: UUID
-    created_by: UUID
+    lesson_id: int | None
+    course_id: int
+    created_by: int
     config: dict
     status: str
     scheduled_at: str | None
@@ -120,12 +115,19 @@ class QuestionRegenerateRequest(BaseModel):
 
 
 class PublishResponse(BaseModel):
-    quiz_id: UUID
+    quiz_id: int
     status: str
 
 
+class StudentPracticeStartResponse(BaseModel):
+    """After auto-approve + publish + attempt stub for a student practice quiz."""
+
+    quiz_id: int
+    attempt_id: int
+
+
 class AnswerInput(BaseModel):
-    question_id: UUID
+    question_id: int
     selected_choice: str
     time_taken_ms: int = 0
 
@@ -145,8 +147,8 @@ class QuestionEditBody(BaseModel):
 
 
 class ScoreAttemptResult(BaseModel):
-    quiz_id: UUID
-    attempt_id: UUID
+    quiz_id: int
+    attempt_id: int
     score_pct: Decimal
     correct_count: int
     total_questions: int

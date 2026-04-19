@@ -5,15 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID
 
 from postgrest.exceptions import APIError
 
 from intelligence.betcha.client import get_supabase
-
-
-def _uuid_str(u: UUID) -> str:
-    return str(u)
 
 
 # PRD §7.9 streak milestones (one-time bonus when streak *reaches* that day count)
@@ -37,16 +32,16 @@ def _utc_today() -> date:
     return datetime.now(timezone.utc).date()
 
 
-def _add_coins_cas(user_id: UUID, delta: int) -> int:
+def _add_coins_cas(user_id: int, delta: int) -> int:
     """Add coins with compare-and-swap on balance."""
     if delta == 0:
         sb = get_supabase()
-        res = sb.table("users").select("coins").eq("id", _uuid_str(user_id)).single().execute()
+        res = sb.table("users").select("coins").eq("id", int(user_id)).single().execute()
         return int(res.data["coins"])
 
     sb = get_supabase()
     try:
-        usr = sb.table("users").select("coins").eq("id", _uuid_str(user_id)).single().execute()
+        usr = sb.table("users").select("coins").eq("id", int(user_id)).single().execute()
     except APIError as e:
         raise ValueError("User not found") from e
 
@@ -55,7 +50,7 @@ def _add_coins_cas(user_id: UUID, delta: int) -> int:
     cas = (
         sb.table("users")
         .update({"coins": new_coins})
-        .eq("id", _uuid_str(user_id))
+        .eq("id", int(user_id))
         .eq("coins", old_coins)
         .execute()
     )
@@ -64,7 +59,7 @@ def _add_coins_cas(user_id: UUID, delta: int) -> int:
     return new_coins
 
 
-def apply_streak_after_quiz_completion(user_id: UUID, *, today: date | None = None) -> StreakUpdateResult:
+def apply_streak_after_quiz_completion(user_id: int, *, today: date | None = None) -> StreakUpdateResult:
     """
     Qualifying quiz completion (UTC day). First completion of the day advances streak;
     same-day subsequent completions do not double-count the streak.
@@ -77,7 +72,7 @@ def apply_streak_after_quiz_completion(user_id: UUID, *, today: date | None = No
         row = (
             sb.table("users")
             .select("current_streak,longest_streak,last_activity_date")
-            .eq("id", _uuid_str(user_id))
+            .eq("id", int(user_id))
             .single()
             .execute()
         )
@@ -124,7 +119,7 @@ def apply_streak_after_quiz_completion(user_id: UUID, *, today: date | None = No
         "last_activity_date": today_d.isoformat(),
     }
 
-    sb.table("users").update(update_payload).eq("id", _uuid_str(user_id)).execute()
+    sb.table("users").update(update_payload).eq("id", int(user_id)).execute()
 
     if milestone_bonus > 0:
         _add_coins_cas(user_id, milestone_bonus)

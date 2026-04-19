@@ -1,30 +1,49 @@
-import { apiFetch } from '@/lib/api/client'
+import { apiFetch, apiFetchJson } from '@/lib/api/client'
 import type { components } from '@/lib/api/schema'
 
-type ShopCatalogItem = components['schemas']['ShopCatalogItem']
-type SpaceLayout = components['schemas']['SpaceLayout']
+export type ShopItemResponse = components['schemas']['ShopItemResponse']
+export type InventoryItemResponse = components['schemas']['InventoryItemResponse']
+export type PurchaseResponse = components['schemas']['PurchaseResponse']
 
-/** GET /shop/catalog — swap mock `fetchShopCatalogMock` when Person A ships this route. */
-export async function getShopCatalog(token: string): Promise<ShopCatalogItem[]> {
-  const res = await apiFetch('/shop/catalog', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) {
-    throw new Error((await res.text()) || `${res.status} ${res.statusText}`)
-  }
-  return res.json() as Promise<ShopCatalogItem[]>
+function authHeaders(token: string): HeadersInit {
+  return { Authorization: `Bearer ${token}` }
 }
 
-/** GET /space/layouts/{layout_id} — swap mock `fetchSpaceLayoutMock` when ready. */
-export async function getSpaceLayout(
-  layoutId: string,
+/** GET /api/v1/shop/items */
+export async function getShopItems(
   token: string,
-): Promise<SpaceLayout> {
-  const res = await apiFetch(`/space/layouts/${encodeURIComponent(layoutId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  category?: string | null,
+): Promise<ShopItemResponse[]> {
+  const q =
+    category && category !== 'all' ? `?category=${encodeURIComponent(category)}` : ''
+  const res = await apiFetch(`/api/v1/shop/items${q}`, {
+    headers: authHeaders(token),
   })
   if (!res.ok) {
     throw new Error((await res.text()) || `${res.status} ${res.statusText}`)
   }
-  return res.json() as Promise<SpaceLayout>
+  return res.json() as Promise<ShopItemResponse[]>
+}
+
+/** POST /api/v1/shop/purchase */
+export async function postShopPurchase(
+  token: string,
+  itemId: number,
+): Promise<PurchaseResponse> {
+  return apiFetchJson<PurchaseResponse>('/api/v1/shop/purchase', {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item_id: itemId }),
+  })
+}
+
+/** GET /api/v1/me/inventory */
+export async function getMyInventory(token: string): Promise<InventoryItemResponse[]> {
+  const res = await apiFetch('/api/v1/me/inventory', {
+    headers: authHeaders(token),
+  })
+  if (!res.ok) {
+    throw new Error((await res.text()) || `${res.status} ${res.statusText}`)
+  }
+  return res.json() as Promise<InventoryItemResponse[]>
 }

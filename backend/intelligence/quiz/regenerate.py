@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from intelligence.quiz.chunk_source import load_chunk_text_for_lessons
 from intelligence.quiz.openai_client import build_generation_metadata, regenerate_single_mcq
@@ -17,14 +16,14 @@ from intelligence.quiz.schemas import QuizGenerationConfig
 
 
 def regenerate_question(
-    question_id: UUID,
+    question_id: int,
     config_override: QuizGenerationConfig | None = None,
 ) -> dict[str, Any]:
     """
     Regenerate one question using the quiz's stored ``config`` snapshot unless ``config_override`` is set.
     """
     qrow = get_question_row(question_id)
-    quiz = get_quiz_row(UUID(str(qrow["quiz_id"])))
+    quiz = get_quiz_row(int(qrow["quiz_id"]))
 
     raw_cfg = quiz.get("config")
     if not raw_cfg:
@@ -58,6 +57,7 @@ def regenerate_question(
         concept_specs=concept_specs,
         concept_id=concept_id,
         difficulty=diff,  # type: ignore[arg-type]
+        previous_question_text=str(qrow.get("text") or ""),
     )
 
     meta = build_generation_metadata("gpt-4o-mini")
@@ -67,7 +67,7 @@ def regenerate_question(
             "text": draft.text,
             "choices": [c.model_dump() for c in draft.choices],
             "correct_choice": draft.correct_choice,
-            "concept_id": str(draft.concept_id),
+            "concept_id": int(draft.concept_id),
             "difficulty": draft.difficulty,
             "generation_metadata": meta,
             "approved": False,

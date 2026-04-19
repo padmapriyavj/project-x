@@ -1,7 +1,5 @@
 """FastAPI routes for Betcha (PRD §10 quiz runtime; PERSON_B)."""
 
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from intelligence.betcha.deps import get_current_user_id
@@ -22,9 +20,9 @@ router = APIRouter(prefix="/api/v1", tags=["Betcha"])
     summary="Place Betcha wager (upfront stake)",
 )
 async def post_quiz_betcha(
-    quiz_id: UUID,
+    quiz_id: int,
     body: PlaceBetchaBody,
-    user_id: UUID = Depends(get_current_user_id),
+    user_id: int = Depends(get_current_user_id),
 ) -> PlaceBetchaResponse:
     try:
         balance = place_betcha_wager(
@@ -57,9 +55,9 @@ async def post_quiz_betcha(
     ),
 )
 async def post_quiz_attempt_finalize(
-    attempt_id: UUID,
+    attempt_id: int,
     body: FinalizeBetchaBody,
-    user_id: UUID = Depends(get_current_user_id),
+    user_id: int = Depends(get_current_user_id),
 ) -> FinalizeBetchaResponse:
     try:
         resolution = apply_betcha_resolution_to_attempt(

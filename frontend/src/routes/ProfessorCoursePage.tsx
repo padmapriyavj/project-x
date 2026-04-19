@@ -10,13 +10,18 @@ import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SimpleModal } from '@/components/ui/SimpleModal'
 import { Spinner } from '@/components/ui/Spinner'
-import { deleteLesson, deleteMaterial, listLessons, listMaterials } from '@/lib/courseContentLocal'
 import type { Student, UpdateCourseRequest } from '@/lib/api/types/course'
+import {
+  useCourseAnalyticsQuery,
+  type CourseAnalyticsResponse,
+} from '@/lib/queries/dashboardQueries'
 import {
   useCourseQuery,
   useCourseStudentsQuery,
   useUpdateCourseMutation,
 } from '@/lib/queries/courseQueries'
+import { useDeleteMaterialMutation, useMaterialsQuery } from '@/lib/queries/materialQueries'
+import { useLessonsQuery } from '@/lib/queries/lessonQueries'
 
 function parseApiError(error: unknown): string {
   if (error instanceof Error) {
@@ -65,7 +70,81 @@ function StudentRow({ student }: { student: Student }) {
   )
 }
 
-type Tab = 'students' | 'materials' | 'lessons'
+type Tab = 'students' | 'materials' | 'lessons' | 'analytics'
+
+function ConceptHeatmapSection({ data }: { data: CourseAnalyticsResponse }) {
+  const concepts = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const c of data.concept_heatmap) {
+      names.set(c.concept_id, c.concept_name)
+    }
+    return [...names.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  }, [data.concept_heatmap])
+
+  const byStudent = useMemo(() => {
+    const m = new Map<number, Map<string, number>>()
+    for (const cell of data.concept_heatmap) {
+      if (!m.has(cell.student_id)) m.set(cell.student_id, new Map())
+      m.get(cell.student_id)!.set(cell.concept_id, cell.mastery_score)
+    }
+    return m
+  }, [data.concept_heatmap])
+
+  if (concepts.length === 0 || data.roster.length === 0) {
+    return (
+      <Card padding="md">
+        <p className="text-foreground/70 text-sm">
+          No concept mastery data yet. As students complete quizzes, a heatmap will appear here.
+        </p>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-divider/60 bg-surface">
+      <table className="text-foreground/85 w-full min-w-[480px] border-collapse text-left text-xs">
+        <thead>
+          <tr className="border-divider/60 bg-background/50 border-b">
+            <th className="sticky left-0 z-[1] border-divider/60 border-r bg-background/95 px-3 py-2 font-medium">
+              Student
+            </th>
+            {concepts.map(([cid, label]) => (
+              <th key={cid} className="max-w-[8rem] px-2 py-2 font-medium" title={label}>
+                <span className="line-clamp-2">{label}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.roster.map((student) => (
+            <tr key={student.id} className="border-divider/40 border-b last:border-0">
+              <td className="sticky left-0 z-[1] border-divider/60 border-r bg-surface px-3 py-2 font-medium">
+                {student.display_name}
+              </td>
+              {concepts.map(([cid]) => {
+                const score = byStudent.get(student.id)?.get(cid)
+                const pct = score != null ? Math.max(0, Math.min(1, score)) * 100 : 0
+                const bg =
+                  score == null
+                    ? 'bg-background/40'
+                    : pct >= 70
+                      ? 'bg-emerald-500/35'
+                      : pct >= 40
+                        ? 'bg-amber-500/30'
+                        : 'bg-rose-500/25'
+                return (
+                  <td key={cid} className={`px-2 py-2 text-center tabular-nums ${bg}`} title={score?.toFixed(2)}>
+                    {score != null ? Math.round(pct) : '—'}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export function ProfessorCoursePage() {
   const { courseId } = useParams<{ courseId: string }>()
@@ -74,19 +153,33 @@ export function ProfessorCoursePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = (searchParams.get('tab') as Tab) || 'students'
   const setTab = (t: Tab) => {
-    setSearchParams(t === 'students' ? {} : { tab: t })
+    const next = new URLSearchParams(searchParams)
+    if (t === 'students') next.delete('tab')
+    else next.set('tab', t)
+    setSearchParams(next)
   }
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [localTick, setLocalTick] = useState(0)
 
   const course = useCourseQuery(id)
   const students = useCourseStudentsQuery(id)
   const updateCourse = useUpdateCourseMutation(id)
+  const materialsQuery = useMaterialsQuery(id)
+  const lessonsQuery = useLessonsQuery(id)
+  const deleteMaterialMut = useDeleteMaterialMutation(id)
+  const analyticsQuery = useCourseAnalyticsQuery(id)
 
-  const materials = useMemo(() => (id > 0 ? listMaterials(id) : []), [id, localTick])
-  const lessons = useMemo(() => (id > 0 ? listLessons(id) : []), [id, localTick])
+  const materials = materialsQuery.data ?? []
+  const lessons = lessonsQuery.data ?? []
+
+  const materialNameById = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const row of materials) {
+      m.set(row.id, row.filename)
+    }
+    return m
+  }, [materials])
 
   const handleUpdate = (data: UpdateCourseRequest) => {
     updateCourse.mutate(data, {
@@ -171,6 +264,7 @@ export function ProfessorCoursePage() {
         {tabBtn('students', 'Students')}
         {tabBtn('materials', 'Materials')}
         {tabBtn('lessons', 'Lessons')}
+        {tabBtn('analytics', 'Analytics')}
       </div>
 
       {tab === 'students' ? (
@@ -225,7 +319,13 @@ export function ProfessorCoursePage() {
               Upload material
             </Button>
           </div>
-          {materials.length === 0 ? (
+          {materialsQuery.isLoading ? <Spinner label="Loading materials..." /> : null}
+          {materialsQuery.isError ? (
+            <p className="text-danger text-sm" role="alert">
+              Could not load materials.
+            </p>
+          ) : null}
+          {materials.length === 0 && !materialsQuery.isLoading ? (
             <Card padding="lg">
               <p className="text-foreground/70 text-sm">
                 No materials yet. Upload a PDF or PowerPoint file (.pdf, .ppt, .pptx).
@@ -239,16 +339,18 @@ export function ProfessorCoursePage() {
                     <div>
                       <p className="font-medium">{m.filename}</p>
                       <p className="text-foreground/60 text-xs uppercase">
-                        {m.type} · {m.processingStatus}
+                        {m.type} · {m.processing_status}
                       </p>
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
+                      disabled={deleteMaterialMut.isPending}
                       onClick={() => {
-                        deleteMaterial(m.id)
-                        setLocalTick((x) => x + 1)
+                        if (confirm('Remove this material from the course?')) {
+                          deleteMaterialMut.mutate(m.id)
+                        }
                       }}
                     >
                       Remove
@@ -274,25 +376,29 @@ export function ProfessorCoursePage() {
               Create lesson
             </Button>
           </div>
-          {lessons.length === 0 ? (
+          {lessonsQuery.isLoading ? <Spinner label="Loading lessons..." /> : null}
+          {lessonsQuery.isError ? (
+            <p className="text-danger text-sm" role="alert">
+              Could not load lessons.
+            </p>
+          ) : null}
+          {lessons.length === 0 && !lessonsQuery.isLoading ? (
             <Card padding="lg">
               <p className="text-foreground/70 text-sm">
-                No lessons yet. Create a weekly lesson and link one PDF or deck to it.
+                No lessons yet. Create a weekly lesson and upload a PDF or deck linked to it.
               </p>
             </Card>
           ) : (
             <ul className="space-y-3">
               {lessons.map((lesson) => {
                 const linkedName =
-                  lesson.materialId != null
-                    ? materials.find((m) => m.id === lesson.materialId)?.filename
-                    : undefined
+                  lesson.material_id != null ? materialNameById.get(lesson.material_id) : undefined
                 return (
                   <li key={lesson.id}>
                     <Card padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-heading font-medium">{lesson.title}</p>
-                        <p className="text-foreground/60 text-sm">Week {lesson.weekNumber}</p>
+                        <p className="text-foreground/60 text-sm">Week {lesson.week_number}</p>
                         {linkedName ? (
                           <p className="text-foreground/70 mt-1 truncate text-xs">File: {linkedName}</p>
                         ) : (
@@ -308,19 +414,6 @@ export function ProfessorCoursePage() {
                         >
                           Concepts
                         </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm('Delete this lesson?')) {
-                              deleteLesson(lesson.id)
-                              setLocalTick((x) => x + 1)
-                            }
-                          }}
-                        >
-                          Delete
-                        </Button>
                       </div>
                     </Card>
                   </li>
@@ -331,12 +424,31 @@ export function ProfessorCoursePage() {
         </section>
       ) : null}
 
-      <UploadMaterialModal
-        courseId={c.id}
-        isOpen={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        onUploaded={() => setLocalTick((x) => x + 1)}
-      />
+      {tab === 'analytics' ? (
+        <section>
+          <h2 className="font-heading text-foreground mb-4 text-lg">Course analytics</h2>
+          {analyticsQuery.isLoading ? <Spinner label="Loading analytics..." /> : null}
+          {analyticsQuery.isError ? (
+            <p className="text-danger text-sm" role="alert">
+              Could not load analytics.
+            </p>
+          ) : null}
+          {analyticsQuery.data ? (
+            <div className="space-y-6">
+              <Card padding="md">
+                <p className="text-foreground/80 text-sm">
+                  <span className="font-medium">{analyticsQuery.data.course_name}</span> — roster{' '}
+                  {analyticsQuery.data.roster.length} students, {analyticsQuery.data.concept_heatmap.length} mastery
+                  cells.
+                </p>
+              </Card>
+              <ConceptHeatmapSection data={analyticsQuery.data} />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <UploadMaterialModal courseId={c.id} isOpen={uploadOpen} onClose={() => setUploadOpen(false)} />
 
       <SimpleModal title="Edit course" isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}>
         <div className="space-y-4">
@@ -346,9 +458,11 @@ export function ProfessorCoursePage() {
             </p>
           ) : null}
           <CourseForm
+            key={`edit-${c.id}`}
             initialValues={{
               name: c.name,
               description: c.description,
+              schedule: c.schedule,
             }}
             onSubmit={handleUpdate}
             onCancel={() => setIsEditModalOpen(false)}

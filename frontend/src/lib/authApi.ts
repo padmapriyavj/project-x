@@ -4,7 +4,7 @@ import type { components } from '@/lib/api/schema'
 type LoginRequest = components['schemas']['LoginRequest']
 type SignupRequest = components['schemas']['SignupRequest']
 type AuthResponse = components['schemas']['AuthResponse']
-type UserPublic = components['schemas']['UserPublic']
+type UserPublic = components['schemas']['UserResponse']
 
 export async function loginRequest(body: LoginRequest): Promise<AuthResponse> {
   return apiFetchJson<AuthResponse>('/auth/login', {

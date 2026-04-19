@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from postgrest.exceptions import APIError
@@ -22,14 +20,14 @@ class StreakResponse(BaseModel):
 
 
 @router.get("/me", response_model=StreakResponse)
-async def get_my_streak_and_coins(user_id: UUID = Depends(get_current_user_id)) -> StreakResponse:
+async def get_my_streak_and_coins(user_id: int = Depends(get_current_user_id)) -> StreakResponse:
     """Current user's streak fields and coin balance (PRD dashboard)."""
     sb = get_supabase()
     try:
         row = (
             sb.table("users")
             .select("current_streak,longest_streak,last_activity_date,coins")
-            .eq("id", str(user_id))
+            .eq("id", int(user_id))
             .single()
             .execute()
         )

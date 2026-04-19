@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from engagement.duels.schemas import (
@@ -23,7 +21,7 @@ router = APIRouter(prefix="/duels", tags=["Duels"])
 @router.post("", response_model=DuelCreateResponse)
 async def post_create_duel(
     body: DuelCreateBody,
-    user_id: UUID = Depends(get_current_user_id),
+    user_id: int = Depends(get_current_user_id),
 ) -> DuelCreateResponse:
     try:
         out = duel_service.create_duel(quiz_id=body.quiz_id, host_user_id=user_id)
@@ -35,7 +33,7 @@ async def post_create_duel(
 @router.post("/{room_id}/join", response_model=DuelJoinResponse)
 async def post_join_duel(
     room_id: str,
-    user_id: UUID = Depends(get_current_user_id),
+    user_id: int = Depends(get_current_user_id),
 ) -> DuelJoinResponse:
     try:
         out = duel_service.join_duel(room_id=room_id, user_id=user_id)
@@ -47,7 +45,7 @@ async def post_join_duel(
 @router.post("/{room_id}/attempts", response_model=DuelAttemptResponse)
 async def post_duel_attempt(
     room_id: str,
-    user_id: UUID = Depends(get_current_user_id),
+    user_id: int = Depends(get_current_user_id),
 ) -> DuelAttemptResponse:
     try:
         aid, qid = duel_service.create_duel_attempt(room_id=room_id, user_id=user_id)
@@ -68,7 +66,7 @@ async def post_mark_active(room_id: str) -> None:
 async def post_settle_duel(
     room_id: str,
     body: DuelSettleBody,
-    user_id: UUID = Depends(get_current_user_id),
+    user_id: int = Depends(get_current_user_id),
 ) -> DuelSettleResponse:
     try:
         out = duel_service.settle_duel(

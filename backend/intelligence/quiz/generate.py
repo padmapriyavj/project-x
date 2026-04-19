@@ -5,7 +5,6 @@ from __future__ import annotations
 import random
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
 
 from intelligence.quiz.chunk_source import load_chunk_text_for_lessons
 from intelligence.quiz.openai_client import build_generation_metadata, generate_mcq_batch
@@ -45,7 +44,7 @@ def _config_to_json(config: QuizGenerationConfig) -> dict[str, Any]:
     return config.model_dump(mode="json")
 
 
-def generate_quiz(req: QuizGenerateRequest, created_by: UUID, *, rng_seed: int | None = None) -> dict[str, Any]:
+def generate_quiz(req: QuizGenerateRequest, created_by: int, *, rng_seed: int | None = None) -> dict[str, Any]:
     """
     Create draft quiz row + questions. Returns ``{quiz_id, status, questions}``.
     """
@@ -74,7 +73,7 @@ def generate_quiz(req: QuizGenerateRequest, created_by: UUID, *, rng_seed: int |
     if not context.strip():
         context = "(No material text for these lessons; generate from concept names only.)"
 
-    rng = random.Random(rng_seed if rng_seed is not None else 42)
+    rng = random.Random(rng_seed) if rng_seed is not None else random.Random()
     allocations = _allocate_slots(cfg, rng)
     drafts = generate_mcq_batch(
         context_text=context,
@@ -82,7 +81,7 @@ def generate_quiz(req: QuizGenerateRequest, created_by: UUID, *, rng_seed: int |
         allocations=allocations,
     )
 
-    meta = build_generation_metadata("gpt-4o-mini", seed=str(rng_seed))
+    meta = build_generation_metadata("gpt-4o-mini", seed=str(rng_seed) if rng_seed is not None else None)
     duration_sec = cfg.num_questions * cfg.time_per_question
     lesson_id = lesson_ids[0]
 
@@ -104,7 +103,7 @@ def generate_quiz(req: QuizGenerateRequest, created_by: UUID, *, rng_seed: int |
                 "text": d.text,
                 "choices": [c.model_dump() for c in d.choices],
                 "correct_choice": d.correct_choice,
-                "concept_id": str(d.concept_id),
+                "concept_id": int(d.concept_id),
                 "difficulty": d.difficulty,
                 "generation_metadata": meta,
                 "approved": False,
@@ -115,7 +114,7 @@ def generate_quiz(req: QuizGenerateRequest, created_by: UUID, *, rng_seed: int |
 
     stored = list_questions(quiz_id)
     return {
-        "quiz_id": str(quiz_id),
+        "quiz_id": int(quiz_id),
         "status": "draft",
         "questions": stored,
     }

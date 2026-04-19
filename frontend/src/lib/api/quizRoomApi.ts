@@ -1,26 +1,23 @@
 import { apiFetch, apiFetchJson } from '@/lib/api/client'
-import type { components } from '@/lib/api/schema'
 
-type CreateBody = components['schemas']['CreateQuizRoomRequest']
-type CreateRes = components['schemas']['CreateQuizRoomResponse']
-type QuizRoomPublic = components['schemas']['QuizRoomPublic']
+/** @deprecated Legacy REST quiz-room stub; realtime uses Socket.IO ``/quiz-room``. */
+export type CreateQuizRoomBody = Record<string, unknown>
+export type CreateQuizRoomResult = Record<string, unknown>
+export type QuizRoomPublic = Record<string, unknown>
 
-/** POST /quiz-rooms — replace mock navigation when Person B ships the handler. */
+/** POST /quiz-rooms */
 export async function createQuizRoom(
-  body: CreateBody,
+  body: CreateQuizRoomBody,
   token: string,
-): Promise<CreateRes> {
-  return apiFetchJson<CreateRes>('/quiz-rooms', {
+): Promise<CreateQuizRoomResult> {
+  return apiFetchJson<CreateQuizRoomResult>('/quiz-rooms', {
     method: 'POST',
     body: JSON.stringify(body),
     headers: { Authorization: `Bearer ${token}` },
   })
 }
 
-export async function getQuizRoom(
-  roomId: string,
-  token: string,
-): Promise<QuizRoomPublic> {
+export async function getQuizRoom(roomId: string, token: string): Promise<QuizRoomPublic> {
   const res = await apiFetch(`/quiz-rooms/${encodeURIComponent(roomId)}`, {
     headers: { Authorization: `Bearer ${token}` },
   })

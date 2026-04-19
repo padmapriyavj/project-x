@@ -1,7 +1,5 @@
 """Pydantic models for concept extraction (PRD concepts + lessons)."""
 
-from uuid import UUID
-
 from pydantic import BaseModel, Field
 
 
@@ -13,24 +11,24 @@ class ConceptGenerateBody(BaseModel):
     (e.g. ``text`` or ``content``, or nested under ``metadata``) — a partial PDF sample, not S3 bytes.
     """
 
-    course_id: UUID
+    course_id: int
     title: str = Field(max_length=200, description="Lesson title (stored on lessons row)")
-    material_id: UUID = Field(description="FK to materials; excerpt text lives on the materials row")
+    material_id: int = Field(description="FK to materials; excerpt text lives on the materials row")
 
 
 class ConceptItem(BaseModel):
-    id: UUID
-    lesson_id: UUID
+    id: int
+    lesson_id: int
     name: str
     description: str | None = None
 
 
 class ConceptGenerateResponse(BaseModel):
-    lesson_id: UUID
+    lesson_id: int
     concepts: list[ConceptItem]
     replaced: bool = Field(True, description="Existing concepts for this lesson were replaced")
 
 
 class ConceptListResponse(BaseModel):
-    lesson_id: UUID
+    lesson_id: int
     concepts: list[ConceptItem]

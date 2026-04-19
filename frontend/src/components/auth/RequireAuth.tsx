@@ -29,7 +29,7 @@ export function RequireAuth({
     )
   }
 
-  if (allowedRoles?.length && user.role && !allowedRoles.includes(user.role)) {
+  if (allowedRoles?.length && user.role && !allowedRoles.includes(user.role as Role)) {
     return <Navigate to="/" replace />
   }
 

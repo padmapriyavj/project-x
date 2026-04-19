@@ -2,19 +2,28 @@ import { Link } from 'react-router'
 
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { studentDashboardFixture } from '@/lib/mocks/studentDashboard'
+import { Spinner } from '@/components/ui/Spinner'
+import { useCoursesQuery } from '@/lib/queries/courseQueries'
 
-/** Entry to practice flows — uses mock course list until enrollment API exists. */
 export function PracticeHubPage() {
+  const courses = useCoursesQuery()
+
   return (
     <section className="text-left">
       <PageHeader
         title="Practice test"
-        description="Pick a lesson to open the lobby (solo or duel), place Betcha, then run the quiz shell. Data is mocked from the student dashboard fixture."
+        description="Pick a course to open the practice lobby for solo runs or duels."
       />
 
+      {courses.isLoading ? <Spinner label="Loading courses…" /> : null}
+      {courses.isError ? (
+        <p className="text-danger text-sm" role="alert">
+          Could not load your courses. Try again from the dashboard after signing in.
+        </p>
+      ) : null}
+
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {studentDashboardFixture.courses.map((course) => (
+        {(courses.data ?? []).map((course) => (
           <li key={course.id}>
             <Card padding="md" className="h-full">
               <h2 className="font-heading text-foreground text-lg">{course.name}</h2>
@@ -30,15 +39,13 @@ export function PracticeHubPage() {
           </li>
         ))}
       </ul>
+      {(courses.data?.length ?? 0) === 0 && courses.isSuccess ? (
+        <p className="text-foreground/70 mt-4 text-sm">You are not enrolled in any courses yet.</p>
+      ) : null}
+
       <p className="text-foreground/60 mt-6 text-xs">
-        Tempo flow:{' '}
-        <Link
-          to="/student/tempo/demo"
-          className="text-primary inline-flex min-h-11 items-center underline-offset-2 hover:underline"
-        >
-          Open demo Tempo screen
-        </Link>
-        .
+        Tempos scheduled by your professor appear on your course page — open one from there when the window
+        opens.
       </p>
     </section>
   )

@@ -12,26 +12,30 @@ import {
   listLessonConcepts,
   type ConceptItem,
 } from '@/lib/api/intelligenceApi'
-import { getLesson, setLessonConcepts, type LocalConcept } from '@/lib/courseContentLocal'
 import { queryKeys } from '@/lib/queryKeys'
+import { useLessonQuery } from '@/lib/queries/lessonQueries'
 import { useAuthStore } from '@/stores/authStore'
 
-function toLocal(c: ConceptItem): LocalConcept {
-  return { id: c.id, name: c.name, description: c.description ?? '' }
+type EditableConcept = { id: string; name: string; description: string }
+
+function toEditable(c: ConceptItem): EditableConcept {
+  return { id: String(c.id), name: c.name, description: c.description ?? '' }
 }
 
 export function ConceptReviewPage() {
   const { lessonId } = useParams<{ lessonId: string }>()
   const lid = lessonId ?? ''
+  const lessonNumericId = parseInt(lid, 10)
   const token = useAuthStore((s) => s.token)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const lesson = lid ? getLesson(lid) : undefined
 
-  const [localConcepts, setLocalConcepts] = useState<LocalConcept[] | null>(null)
+  const lessonQuery = useLessonQuery(Number.isFinite(lessonNumericId) && lessonNumericId > 0 ? lessonNumericId : 0)
+
+  const [localConcepts, setLocalConcepts] = useState<EditableConcept[] | null>(null)
 
   const conceptsQuery = useQuery({
-    queryKey: queryKeys.lessonConcepts(lid),
+    queryKey: [...queryKeys.lessonConcepts(lid), token ?? ''],
     queryFn: async () => {
       if (!token) throw new Error('Auth')
       return listLessonConcepts(token, lid)
@@ -40,13 +44,11 @@ export function ConceptReviewPage() {
     retry: false,
   })
 
-  const merged: LocalConcept[] =
+  const merged: EditableConcept[] =
     localConcepts ??
     (conceptsQuery.data?.length
-      ? conceptsQuery.data.map(toLocal)
-      : lesson?.concepts?.length
-        ? lesson.concepts
-        : [])
+      ? conceptsQuery.data.map(toEditable)
+      : [])
 
   const generate = useMutation({
     mutationFn: async () => {
@@ -54,44 +56,31 @@ export function ConceptReviewPage() {
       return generateLessonConcepts(token, lid)
     },
     onSuccess: (data) => {
-      const next = data.concepts.map(toLocal)
+      const next = data.concepts.map(toEditable)
       setLocalConcepts(next)
-      setLessonConcepts(lid, next)
       void queryClient.invalidateQueries({ queryKey: queryKeys.lessonConcepts(lid) })
-    },
-    onError: () => {
-      const demo: LocalConcept[] = [
-        { id: crypto.randomUUID(), name: 'Core idea', description: 'From local lesson (demo).' },
-        {
-          id: crypto.randomUUID(),
-          name: 'Practice',
-          description: 'Link a PDF or PowerPoint to the lesson and run generate for real LLM extraction.',
-        },
-      ]
-      setLocalConcepts(demo)
-      setLessonConcepts(lid, demo)
     },
   })
 
-  const updateConcept = (id: string, patch: Partial<LocalConcept>) => {
+  const updateConcept = (id: string, patch: Partial<EditableConcept>) => {
     setLocalConcepts((prev) => {
       const base = prev ?? merged
-      const next = base.map((c) => (c.id === id ? { ...c, ...patch } : c))
-      setLessonConcepts(lid, next)
-      return next
+      return base.map((c) => (c.id === id ? { ...c, ...patch } : c))
     })
   }
 
   const removeConcept = (id: string) => {
     setLocalConcepts((prev) => {
       const base = prev ?? merged
-      const next = base.filter((c) => c.id !== id)
-      setLessonConcepts(lid, next)
-      return next
+      return base.filter((c) => c.id !== id)
     })
   }
 
-  if (!lesson) {
+  if (lessonQuery.isLoading) {
+    return <Spinner label="Loading lesson..." />
+  }
+
+  if (lessonQuery.isError || !lessonQuery.data) {
     return (
       <p className="text-danger text-sm">
         Lesson not found.{' '}
@@ -102,11 +91,13 @@ export function ConceptReviewPage() {
     )
   }
 
+  const lesson = lessonQuery.data
+
   return (
     <div className="text-left">
       <nav className="mb-6">
         <Link
-          to={`/professor/course/${lesson.courseId}?tab=lessons`}
+          to={`/professor/course/${lesson.course_id}?tab=lessons`}
           className="text-primary inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
         >
           &larr; Back to lessons
@@ -126,7 +117,8 @@ export function ConceptReviewPage() {
       {conceptsQuery.isLoading ? <Spinner label="Loading concepts…" /> : null}
       {conceptsQuery.isError && !localConcepts ? (
         <p className="text-foreground/70 mb-4 text-sm">
-          Server concepts unavailable — use Generate or edit demo concepts below.
+          Server concepts unavailable — try Generate after the lesson has source material, or check your
+          connection.
         </p>
       ) : null}
 

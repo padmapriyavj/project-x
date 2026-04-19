@@ -1,15 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 
 import { CoinCounter } from '@/components/dashboard/CoinCounter'
 import type { FinnMood } from '@/components/finn/FinnMascot'
 import { FinnMascot } from '@/components/finn/FinnMascot'
 import { SimpleModal } from '@/components/ui/SimpleModal'
-import { getShopItemById } from '@/lib/mocks/shopCatalog'
-import type { SpaceSlot } from '@/lib/mocks/spaceLayout'
-import { queryKeys } from '@/lib/queryKeys'
-import { fetchSpaceLayoutMock } from '@/lib/queries/shopSpaceQueries'
+import type { InventoryItemResponse } from '@/lib/api/shopSpaceApi'
+import type { SpaceSlot } from '@/lib/space/defaultLayout'
+import { useDefaultSpaceLayoutQuery, useShopInventoryQuery } from '@/lib/queries/shopSpaceQueries'
 import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
 
 export function StudentSpacePage() {
@@ -17,15 +15,36 @@ export function StudentSpacePage() {
   const [finnMood, setFinnMood] = useState<FinnMood>('neutral')
 
   const coins = useStudentEconomyStore((s) => s.coins)
-  const inventoryCounts = useStudentEconomyStore((s) => s.inventoryCounts)
   const slotPlacements = useStudentEconomyStore((s) => s.slotPlacements)
   const placeInSlot = useStudentEconomyStore((s) => s.placeInSlot)
   const clearSlot = useStudentEconomyStore((s) => s.clearSlot)
 
-  const layout = useQuery({
-    queryKey: queryKeys.spaceLayout,
-    queryFn: fetchSpaceLayoutMock,
-  })
+  const layout = useDefaultSpaceLayoutQuery()
+  const inventory = useShopInventoryQuery()
+
+  const placedInventoryIds = useMemo(() => {
+    return new Set(
+      Object.values(slotPlacements).filter((v): v is string => typeof v === 'string' && v.length > 0),
+    )
+  }, [slotPlacements])
+
+  const availableRows = useMemo(() => {
+    const rows = inventory.data ?? []
+    return rows.filter((r) => !placedInventoryIds.has(String(r.id)))
+  }, [inventory.data, placedInventoryIds])
+
+  const rowById = useMemo(() => {
+    const m = new Map<string, InventoryItemResponse>()
+    for (const r of inventory.data ?? []) {
+      m.set(String(r.id), r)
+    }
+    return m
+  }, [inventory.data])
+
+  const resolveLabel = (inventoryRowId: string | null) => {
+    if (!inventoryRowId) return null
+    return rowById.get(inventoryRowId)?.name ?? `Item #${inventoryRowId}`
+  }
 
   useEffect(() => {
     if (finnMood !== 'celebrating') return
@@ -33,13 +52,9 @@ export function StudentSpacePage() {
     return () => window.clearTimeout(t)
   }, [finnMood])
 
-  const ownedPlaceableIds = Object.entries(inventoryCounts)
-    .filter(([, n]) => n > 0)
-    .map(([id]) => id)
-
-  const place = (itemId: string) => {
+  const place = (inventoryRowId: string) => {
     if (!activeSlot) return
-    placeInSlot(activeSlot.id, itemId)
+    placeInSlot(activeSlot.id, inventoryRowId)
     setFinnMood('celebrating')
     setActiveSlot(null)
   }
@@ -85,7 +100,7 @@ export function StudentSpacePage() {
           <div className="grid min-h-[280px] grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             {layout.data.slots.map((slot) => {
               const placedId = slotPlacements[slot.id] ?? null
-              const placed = placedId ? getShopItemById(placedId) : null
+              const placedName = placedId ? resolveLabel(placedId) : null
               return (
                 <button
                   key={slot.id}
@@ -94,8 +109,8 @@ export function StudentSpacePage() {
                   className="border-divider bg-surface hover:border-secondary flex min-h-[7.5rem] flex-col items-center justify-center rounded-[var(--radius-md)] border p-4 text-center transition-colors sm:min-h-[6.5rem]"
                 >
                   <span className="text-foreground/55 text-xs">{slot.label}</span>
-                  {placed ? (
-                    <span className="text-foreground mt-2 text-sm font-semibold">{placed.name}</span>
+                  {placedName ? (
+                    <span className="text-foreground mt-2 text-sm font-semibold">{placedName}</span>
                   ) : (
                     <span className="text-foreground/50 mt-2 text-xs">Empty — tap to decorate</span>
                   )}
@@ -124,11 +139,11 @@ export function StudentSpacePage() {
           <div className="space-y-4">
             {(() => {
               const current = slotPlacements[activeSlot.id]
-              const currentItem = current ? getShopItemById(current) : null
-              return currentItem ? (
+              const currentName = current ? resolveLabel(current) : null
+              return currentName ? (
                 <div>
                   <p className="text-foreground/80 text-sm">
-                    Currently: <strong>{currentItem.name}</strong>
+                    Currently: <strong>{currentName}</strong>
                   </p>
                   <button
                     type="button"
@@ -145,27 +160,22 @@ export function StudentSpacePage() {
                 <p className="text-foreground/75 text-sm">Choose an item from your inventory to place.</p>
               )
             })()}
-            {ownedPlaceableIds.length === 0 ? (
+            {availableRows.length === 0 ? (
               <p className="text-foreground/70 text-sm">Nothing in inventory — buy items in the shop first.</p>
             ) : (
               <ul className="max-h-48 space-y-2 overflow-y-auto">
-                {ownedPlaceableIds.map((id) => {
-                  const item = getShopItemById(id)
-                  if (!item) return null
-                  const n = inventoryCounts[id] ?? 0
-                  return (
-                    <li key={id}>
-                      <button
-                        type="button"
-                        onClick={() => place(id)}
-                        className="border-divider hover:bg-background min-h-11 w-full rounded-[var(--radius-sm)] border px-3 py-2.5 text-left text-sm"
-                      >
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-foreground/60 ml-2 font-mono text-xs">×{n}</span>
-                      </button>
-                    </li>
-                  )
-                })}
+                {availableRows.map((row) => (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      onClick={() => place(String(row.id))}
+                      className="border-divider hover:bg-background min-h-11 w-full rounded-[var(--radius-sm)] border px-3 py-2.5 text-left text-sm"
+                    >
+                      <span className="font-medium">{row.name}</span>
+                      <span className="text-foreground/60 ml-2 text-xs capitalize">{row.category}</span>
+                    </button>
+                  </li>
+                ))}
               </ul>
             )}
           </div>

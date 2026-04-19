@@ -2,7 +2,6 @@
 
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
-from uuid import uuid4
 
 import pytest
 
@@ -18,8 +17,8 @@ from intelligence.quiz.validate import validate_quiz_data
 
 
 def test_quiz_generation_config_weights() -> None:
-    lid = uuid4()
-    cid = uuid4()
+    lid = 9
+    cid = 1
     cfg = QuizGenerationConfig(
         lesson_ids=[lid],
         concepts=[ConceptWeight(concept_id=cid, weight=Decimal("100"))],
@@ -33,8 +32,8 @@ def test_quiz_generation_config_weights() -> None:
 
 
 def test_validate_quiz_data_wrong_count() -> None:
-    lid = uuid4()
-    cid = uuid4()
+    lid = 9
+    cid = 1
     cfg = QuizGenerationConfig(
         lesson_ids=[lid],
         concepts=[ConceptWeight(concept_id=cid, weight=Decimal("100"))],
@@ -50,7 +49,7 @@ def test_validate_quiz_data_wrong_count() -> None:
 
 
 def test_generate_mcq_batch_mocked() -> None:
-    cid = str(uuid4())
+    cid = "7"
     fake_json = (
         '{"questions":[{"text":"Q1","choices":['
         '{"key":"A","text":"a"},{"key":"B","text":"b"},{"key":"C","text":"c"},{"key":"D","text":"d"}],'
@@ -69,10 +68,11 @@ def test_generate_mcq_batch_mocked() -> None:
         )
     assert len(drafts) == 1
     assert drafts[0].correct_choice == "A"
+    assert drafts[0].concept_id == 7
 
 
 def test_question_draft_choice_keys() -> None:
-    cid = uuid4()
+    cid = 42
     q = QuestionDraft(
         text="t",
         choices=[

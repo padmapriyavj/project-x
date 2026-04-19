@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from uuid import UUID
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from intelligence.betcha.deps import get_current_user_id
 from intelligence.concepts.schemas import (
-    ConceptGenerateBody,
     ConceptGenerateResponse,
     ConceptItem,
     ConceptListResponse,
@@ -29,8 +28,8 @@ router = APIRouter(prefix="/api/v1", tags=["Concepts"])
     ),
 )
 async def post_generate_concepts(
-    lesson_id: UUID,
-    _user_id: UUID = Depends(get_current_user_id),
+    lesson_id: int,
+    _user_id: Annotated[int, Depends(get_current_user_id)],
 ) -> ConceptGenerateResponse:
     try:
         stored = generate_concepts_for_lesson(lesson_id)
@@ -41,8 +40,8 @@ async def post_generate_concepts(
 
     items = [
         ConceptItem(
-            id=UUID(str(r["id"])),
-            lesson_id=UUID(str(r["lesson_id"])),
+            id=int(r["id"]),
+            lesson_id=int(r["lesson_id"]),
             name=str(r["name"]),
             description=r.get("description"),
         )
@@ -57,7 +56,7 @@ async def post_generate_concepts(
     summary="List concepts for a lesson",
     description="Used by professor (Tempo) and student flows (practice / duel) to read stored concepts.",
 )
-async def get_lesson_concepts(lesson_id: UUID) -> ConceptListResponse:
+async def get_lesson_concepts(lesson_id: int) -> ConceptListResponse:
     try:
         rows = list_concepts_for_lesson(lesson_id)
     except ValueError as e:
@@ -65,8 +64,8 @@ async def get_lesson_concepts(lesson_id: UUID) -> ConceptListResponse:
 
     items = [
         ConceptItem(
-            id=UUID(str(r["id"])),
-            lesson_id=UUID(str(r["lesson_id"])),
+            id=int(r["id"]),
+            lesson_id=int(r["lesson_id"]),
             name=str(r["name"]),
             description=r.get("description"),
         )

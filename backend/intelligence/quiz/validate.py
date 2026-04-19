@@ -5,13 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
-
 from intelligence.quiz.repository import get_quiz_row, list_questions
 from intelligence.quiz.schemas import QuizGenerationConfig
 
 
-def validate_quiz(quiz_id: UUID) -> list[str]:
+def validate_quiz(quiz_id: int) -> list[str]:
     """
     Return a list of human-readable errors; empty means valid for publishing
     (still require all questions approved in router).

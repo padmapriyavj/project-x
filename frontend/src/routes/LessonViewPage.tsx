@@ -1,21 +1,35 @@
+import { useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { getLesson, listMaterials } from '@/lib/courseContentLocal'
+import { Spinner } from '@/components/ui/Spinner'
 import { useCourseQuery } from '@/lib/queries/courseQueries'
+import { useLessonQuery } from '@/lib/queries/lessonQueries'
+import { useMaterialsQuery } from '@/lib/queries/materialQueries'
 
 export function LessonViewPage() {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>()
   const cid = parseInt(courseId ?? '', 10)
-  const lid = lessonId ?? ''
+  const lid = parseInt(lessonId ?? '', 10)
   const navigate = useNavigate()
   const course = useCourseQuery(cid)
-  const lesson = getLesson(lid)
-  const materials = listMaterials(cid)
+  const lessonQuery = useLessonQuery(lid)
+  const materialsQuery = useMaterialsQuery(cid)
 
-  if (!lesson || lesson.courseId !== cid) {
+  const linkedFilename = useMemo(() => {
+    const lesson = lessonQuery.data
+    if (!lesson?.material_id) return null
+    const m = materialsQuery.data?.find((x) => x.id === lesson.material_id)
+    return m?.filename ?? null
+  }, [lessonQuery.data, materialsQuery.data])
+
+  if (lessonQuery.isLoading || materialsQuery.isLoading) {
+    return <Spinner label="Loading lesson..." />
+  }
+
+  if (lessonQuery.isError || !lessonQuery.data || lessonQuery.data.course_id !== cid) {
     return (
       <p className="text-danger text-sm">
         Lesson not found.{' '}
@@ -26,10 +40,7 @@ export function LessonViewPage() {
     )
   }
 
-  const linked =
-    lesson.materialId != null
-      ? materials.find((m) => m.id === lesson.materialId)?.filename ?? null
-      : null
+  const lesson = lessonQuery.data
 
   return (
     <div className="text-left">
@@ -46,7 +57,7 @@ export function LessonViewPage() {
         title={lesson.title}
         description={
           <>
-            Week {lesson.weekNumber}
+            Week {lesson.week_number}
             {course.data ? (
               <span className="text-foreground/60 mt-2 block text-sm">Course: {course.data.name}</span>
             ) : null}
@@ -57,9 +68,9 @@ export function LessonViewPage() {
       <Card padding="lg" className="mb-6">
         <h2 className="font-heading text-foreground mb-2 text-lg">Material</h2>
         <p className="text-foreground/80 text-sm">
-          {linked ? (
+          {linkedFilename ? (
             <>
-              Linked file: <span className="text-foreground font-medium">{linked}</span>
+              Linked file: <span className="text-foreground font-medium">{linkedFilename}</span>
             </>
           ) : (
             'No file linked to this lesson yet.'
@@ -71,7 +82,7 @@ export function LessonViewPage() {
         type="button"
         variant="secondary"
         onClick={() =>
-          navigate(`/student/practice/lobby/${lid}`, {
+          navigate(`/student/practice/lobby/${String(lesson.course_id)}`, {
             state: { courseName: lesson.title },
           })
         }

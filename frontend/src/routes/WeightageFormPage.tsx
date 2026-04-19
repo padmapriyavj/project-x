@@ -1,13 +1,14 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { TextField } from '@/components/ui/FormField'
-import { generateQuiz, type QuizGenerateBody } from '@/lib/api/intelligenceApi'
-import { getLesson } from '@/lib/courseContentLocal'
-import { stableUuidFromInt } from '@/lib/stableUuid'
+import { Spinner } from '@/components/ui/Spinner'
+import { generateQuiz, listLessonConcepts, type QuizGenerateBody } from '@/lib/api/intelligenceApi'
+import { queryKeys } from '@/lib/queryKeys'
+import { useLessonQuery } from '@/lib/queries/lessonQueries'
 import { useAuthStore } from '@/stores/authStore'
 
 function splitWeights(n: number): string[] {
@@ -20,10 +21,23 @@ function splitWeights(n: number): string[] {
 export function WeightageFormPage() {
   const { lessonId } = useParams<{ lessonId: string }>()
   const lid = lessonId ?? ''
+  const lessonNumericId = parseInt(lid, 10)
   const navigate = useNavigate()
   const token = useAuthStore((s) => s.token)
-  const lesson = lid ? getLesson(lid) : undefined
-  const concepts = lesson?.concepts ?? []
+
+  const lessonQuery = useLessonQuery(Number.isFinite(lessonNumericId) && lessonNumericId > 0 ? lessonNumericId : 0)
+
+  const conceptsQuery = useQuery({
+    queryKey: [...queryKeys.lessonConcepts(lid), token ?? ''],
+    queryFn: async () => {
+      if (!token) throw new Error('Auth')
+      return listLessonConcepts(token, lid)
+    },
+    enabled: !!token && !!lid,
+    retry: false,
+  })
+
+  const concepts = conceptsQuery.data ?? []
 
   const [easy, setEasy] = useState(34)
   const [medium, setMedium] = useState(33)
@@ -37,14 +51,14 @@ export function WeightageFormPage() {
 
   const gen = useMutation({
     mutationFn: async () => {
-      if (!token || !lesson) throw new Error('Missing auth or lesson')
+      if (!token || !lessonQuery.data) throw new Error('Missing auth or lesson')
       const body: QuizGenerateBody = {
-        course_id: stableUuidFromInt(lesson.courseId),
+        course_id: lessonQuery.data.course_id,
         quiz_type: 'practice',
         config: {
-          lesson_ids: [lid],
+          lesson_ids: [lessonQuery.data.id],
           concepts: concepts.map((c, i) => ({
-            concept_id: c.id,
+            concept_id: typeof c.id === 'number' ? c.id : parseInt(String(c.id), 10),
             weight: conceptWeights[i] ?? '0',
           })),
           difficulty_weights: {
@@ -63,7 +77,11 @@ export function WeightageFormPage() {
     },
   })
 
-  if (!lesson) {
+  if (lessonQuery.isLoading || conceptsQuery.isLoading) {
+    return <Spinner label="Loading…" />
+  }
+
+  if (lessonQuery.isError || !lessonQuery.data) {
     return (
       <p className="text-danger text-sm">
         Lesson not found.{' '}
@@ -93,6 +111,11 @@ export function WeightageFormPage() {
       <div className="mx-auto max-w-xl space-y-6">
         <section>
           <h2 className="font-heading mb-2 text-lg">Concepts ({concepts.length})</h2>
+          {conceptsQuery.isError ? (
+            <p className="text-foreground/70 text-sm">
+              Could not load concepts from the server. Go back and generate concepts first.
+            </p>
+          ) : null}
           <ul className="text-foreground/80 space-y-1 text-sm">
             {concepts.map((c, i) => (
               <li key={c.id}>

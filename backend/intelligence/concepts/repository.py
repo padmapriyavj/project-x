@@ -3,58 +3,57 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from postgrest.exceptions import APIError
 
 from intelligence.betcha.client import get_supabase
 
 
-def get_lesson(lesson_id: UUID) -> dict[str, Any] | None:
+def get_lesson(lesson_id: int) -> dict[str, Any] | None:
     sb = get_supabase()
     try:
-        res = sb.table("lessons").select("*").eq("id", str(lesson_id)).single().execute()
+        res = sb.table("lessons").select("*").eq("id", lesson_id).single().execute()
         return dict(res.data)
     except APIError:
         return None
 
 
 def update_lesson_context(
-    lesson_id: UUID,
+    lesson_id: int,
     *,
-    course_id: UUID,
+    course_id: int,
     title: str,
-    material_id: UUID,
+    material_id: int,
 ) -> None:
     sb = get_supabase()
     sb.table("lessons").update(
         {
-            "course_id": str(course_id),
+            "course_id": course_id,
             "title": title,
-            "material_id": str(material_id),
+            "material_id": material_id,
         }
-    ).eq("id", str(lesson_id)).execute()
+    ).eq("id", lesson_id).execute()
 
 
-def get_course_name(course_id: UUID) -> str:
+def get_course_name(course_id: int) -> str:
     sb = get_supabase()
     try:
-        res = sb.table("courses").select("name").eq("id", str(course_id)).single().execute()
+        res = sb.table("courses").select("name").eq("id", course_id).single().execute()
         return str(res.data.get("name") or "Course")
     except APIError:
         return "Course"
 
 
-def delete_concepts_for_lesson(lesson_id: UUID) -> None:
+def delete_concepts_for_lesson(lesson_id: int) -> None:
     sb = get_supabase()
-    sb.table("concepts").delete().eq("lesson_id", str(lesson_id)).execute()
+    sb.table("concepts").delete().eq("lesson_id", lesson_id).execute()
 
 
-def insert_concepts(lesson_id: UUID, items: list[dict[str, str]]) -> list[dict[str, Any]]:
+def insert_concepts(lesson_id: int, items: list[dict[str, str]]) -> list[dict[str, Any]]:
     sb = get_supabase()
     payload = [
         {
-            "lesson_id": str(lesson_id),
+            "lesson_id": lesson_id,
             "name": it["name"],
             "description": it.get("description") or "",
         }
@@ -64,12 +63,12 @@ def insert_concepts(lesson_id: UUID, items: list[dict[str, str]]) -> list[dict[s
     return [dict(r) for r in (res.data or [])]
 
 
-def list_concepts(lesson_id: UUID) -> list[dict[str, Any]]:
+def list_concepts(lesson_id: int) -> list[dict[str, Any]]:
     sb = get_supabase()
     res = (
         sb.table("concepts")
         .select("id,lesson_id,name,description")
-        .eq("lesson_id", str(lesson_id))
+        .eq("lesson_id", lesson_id)
         .order("name")
         .execute()
     )

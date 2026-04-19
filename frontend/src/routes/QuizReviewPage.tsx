@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { ScheduleTempoModal } from '@/components/tempo/ScheduleTempoModal'
@@ -14,19 +14,23 @@ import {
   publishQuiz,
   regenerateQuestion,
 } from '@/lib/api/intelligenceApi'
-import { getLesson } from '@/lib/courseContentLocal'
+import { intFromStableUuid } from '@/lib/stableUuid'
 import { queryKeys } from '@/lib/queryKeys'
+import { useCourseQuery } from '@/lib/queries/courseQueries'
+import { useLessonQuery } from '@/lib/queries/lessonQueries'
 import { useAuthStore } from '@/stores/authStore'
 
 type Choice = { key: string; text: string }
 
 type QRow = {
-  id: string
+  id: string | number
   text: string
   choices: Choice[]
   correct_choice: string
   approved: boolean
   difficulty?: string
+  /** From DB; changes after regenerate so we can remount uncontrolled fields. */
+  updated_at?: string
 }
 
 export function QuizReviewPage() {
@@ -36,7 +40,6 @@ export function QuizReviewPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [scheduleOpen, setScheduleOpen] = useState(false)
-  const [meta, setMeta] = useState<{ courseId: number; lessonId: string; courseName: string } | null>(null)
 
   const quizQuery = useQuery({
     queryKey: queryKeys.quizDetail(qid),
@@ -49,37 +52,51 @@ export function QuizReviewPage() {
 
   const questions: QRow[] = (quizQuery.data?.questions as QRow[] | undefined) ?? []
 
-  useEffect(() => {
-    if (!quizQuery.data || meta) return
-    const lid = quizQuery.data.lesson_id as string | undefined
-    const les = lid ? getLesson(lid) : undefined
-    if (les) {
-      setMeta({ courseId: les.courseId, lessonId: les.id, courseName: 'Course' })
+  const platformLessonId = useMemo(() => {
+    const raw = quizQuery.data?.lesson_id
+    if (raw == null) return null
+    const s = String(raw).trim()
+    if (/^\d+$/.test(s)) return parseInt(s, 10)
+    return intFromStableUuid(s)
+  }, [quizQuery.data?.lesson_id])
+
+  const lessonQuery = useLessonQuery(
+    platformLessonId != null && platformLessonId > 0 ? platformLessonId : 0,
+  )
+
+  const courseQuery = useCourseQuery(lessonQuery.data?.course_id ?? 0)
+
+  const meta = useMemo(() => {
+    if (!lessonQuery.data) return null
+    return {
+      courseId: lessonQuery.data.course_id,
+      lessonId: String(lessonQuery.data.id),
+      courseName: courseQuery.data?.name ?? 'Course',
     }
-  }, [quizQuery.data, meta])
+  }, [lessonQuery.data, courseQuery.data?.name])
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: queryKeys.quizDetail(qid) })
 
   const approve = useMutation({
-    mutationFn: (id: string) => {
+    mutationFn: (id: string | number) => {
       if (!token) throw new Error('Auth')
-      return approveQuestion(token, id)
+      return approveQuestion(token, String(id))
     },
     onSuccess: invalidate,
   })
 
   const regen = useMutation({
-    mutationFn: (id: string) => {
+    mutationFn: (id: string | number) => {
       if (!token) throw new Error('Auth')
-      return regenerateQuestion(token, id, null)
+      return regenerateQuestion(token, String(id), null)
     },
     onSuccess: invalidate,
   })
 
   const saveText = useMutation({
-    mutationFn: ({ id, text }: { id: string; text: string }) => {
+    mutationFn: ({ id, text }: { id: string | number; text: string }) => {
       if (!token) throw new Error('Auth')
-      return patchQuestion(token, id, { text })
+      return patchQuestion(token, String(id), { text })
     },
     onSuccess: invalidate,
   })
@@ -121,7 +138,7 @@ export function QuizReviewPage() {
 
       <ul className="mb-8 space-y-4">
         {questions.map((q) => (
-          <li key={q.id}>
+          <li key={`${String(q.id)}-${q.updated_at ?? ''}`}>
             <Card padding="md" className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-foreground/60 text-xs uppercase">{q.difficulty ?? 'mixed'}</span>
@@ -133,9 +150,10 @@ export function QuizReviewPage() {
                 Question
               </label>
               <textarea
-                id={`qt-${q.id}`}
+                id={`qt-${String(q.id)}`}
                 className="border-divider bg-surface w-full rounded-[var(--radius-sm)] border px-3 py-2 text-sm"
                 rows={3}
+                key={`qt-body-${String(q.id)}-${q.updated_at ?? q.text}`}
                 defaultValue={q.text}
                 onBlur={(e) => {
                   if (e.target.value !== q.text) saveText.mutate({ id: q.id, text: e.target.value })
@@ -190,6 +208,7 @@ export function QuizReviewPage() {
           courseId={meta.courseId}
           lessonId={meta.lessonId}
           courseName={meta.courseName}
+          quizId={qid}
           isOpen={scheduleOpen}
           onClose={() => {
             setScheduleOpen(false)

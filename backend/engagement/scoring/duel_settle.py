@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from postgrest.exceptions import APIError
 
@@ -11,29 +10,25 @@ from engagement.scoring.rules import duel_outcome_coins
 from intelligence.betcha.client import get_supabase
 
 
-def _uuid(u: UUID) -> str:
-    return str(u)
-
-
-def _add_coins_cas(user_id: UUID, delta: int) -> None:
+def _add_coins_cas(user_id: int, delta: int) -> None:
     if delta == 0:
         return
     sb = get_supabase()
     try:
-        usr = sb.table("users").select("coins").eq("id", _uuid(user_id)).single().execute()
+        usr = sb.table("users").select("coins").eq("id", int(user_id)).single().execute()
     except APIError as e:
         raise ValueError("User not found") from e
     old = int(usr.data["coins"])
     new = old + delta
-    cas = sb.table("users").update({"coins": new}).eq("id", _uuid(user_id)).eq("coins", old).execute()
+    cas = sb.table("users").update({"coins": new}).eq("id", int(user_id)).eq("coins", old).execute()
     if not cas.data:
         raise ValueError("Coin update failed (retry)")
 
 
 def apply_duel_settlement(
     *,
-    winner_user_id: UUID,
-    loser_user_id: UUID,
+    winner_user_id: int,
+    loser_user_id: int,
     opponent_ante: int = 0,
 ) -> dict[str, Any]:
     """
@@ -47,6 +42,6 @@ def apply_duel_settlement(
     return {
         "winner_coins": w,
         "loser_coins": l,
-        "winner_user_id": _uuid(winner_user_id),
-        "loser_user_id": _uuid(loser_user_id),
+        "winner_user_id": int(winner_user_id),
+        "loser_user_id": int(loser_user_id),
     }

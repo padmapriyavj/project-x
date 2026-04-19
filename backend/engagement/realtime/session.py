@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
 
 from engagement.realtime.policy import ModePolicy, policy_for_mode, time_limit_sec_for_question
 from engagement.realtime.protocol import (
@@ -164,11 +163,11 @@ def utc_now_iso() -> str:
 
 def ensure_attempt_stub(
     *,
-    quiz_id: UUID,
-    user_id: UUID,
+    quiz_id: int,
+    user_id: int,
     mode: RoomMode,
     room_id: str | None = None,
-) -> UUID:
+) -> int:
     from intelligence.quiz.repository import insert_quiz_attempt_stub
 
     return insert_quiz_attempt_stub(

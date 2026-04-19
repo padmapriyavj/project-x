@@ -29,6 +29,7 @@ export function CreateCourseModal({ isOpen, onClose, onSuccess }: CreateCourseMo
     const body: CreateCourseRequest = {
       name: data.name ?? '',
       description: data.description ?? null,
+      schedule: 'schedule' in data && data.schedule != null ? data.schedule : {},
     }
     createCourse.mutate(body, {
       onSuccess: () => {

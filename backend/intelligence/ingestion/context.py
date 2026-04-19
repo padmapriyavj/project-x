@@ -7,7 +7,6 @@ Full text may live in ``metadata`` (e.g. ``full_text``) or top-level columns; on
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from postgrest.exceptions import APIError
 
@@ -41,17 +40,17 @@ def _truncate(text: str, max_chars: int) -> tuple[str, bool]:
     return text[:max_chars] + "\n\n[truncated]", True
 
 
-def _material_raw_text(material_id: UUID) -> str:
+def _material_raw_text(material_id: int) -> str:
     """Unbounded text from DB for one material (internal assembly)."""
     sb = get_supabase()
     try:
-        res = sb.table("materials").select("*").eq("id", str(material_id)).single().execute()
+        res = sb.table("materials").select("*").eq("id", material_id).single().execute()
     except APIError:
         return ""
     return extract_text_from_material_row(dict(res.data or {}))
 
 
-def get_text_for_material(material_id: UUID, max_chars: int = 120_000) -> str:
+def get_text_for_material(material_id: int, max_chars: int = 120_000) -> str:
     """Load LLM context text for a single material row."""
     raw = _material_raw_text(material_id)
     out, _ = _truncate(raw, max_chars)
@@ -63,7 +62,7 @@ def _raw_text_for_lesson_row(lesson: dict[str, Any]) -> str:
     parts: list[str] = []
     mid = lesson.get("material_id")
     if mid:
-        t = _material_raw_text(UUID(str(mid)))
+        t = _material_raw_text(int(mid))
         if t.strip():
             parts.append(t.strip())
         return "\n\n".join(parts)
@@ -74,17 +73,17 @@ def _raw_text_for_lesson_row(lesson: dict[str, Any]) -> str:
         m = src.get("material_id")
         if m is None:
             continue
-        t = _material_raw_text(UUID(str(m)))
+        t = _material_raw_text(int(m))
         if t.strip():
             parts.append(t.strip())
     return "\n\n".join(parts)
 
 
-def get_text_for_lesson(lesson_id: UUID, max_chars: int = 120_000) -> str:
+def get_text_for_lesson(lesson_id: int, max_chars: int = 120_000) -> str:
     """Load and truncate LLM context for one lesson."""
     sb = get_supabase()
     try:
-        res = sb.table("lessons").select("*").eq("id", str(lesson_id)).single().execute()
+        res = sb.table("lessons").select("*").eq("id", lesson_id).single().execute()
     except APIError:
         return ""
     lesson = dict(res.data or {})
@@ -93,7 +92,7 @@ def get_text_for_lesson(lesson_id: UUID, max_chars: int = 120_000) -> str:
     return out
 
 
-def assemble_text_for_lesson_ids(lesson_ids: list[UUID], max_chars: int = 120_000) -> str:
+def assemble_text_for_lesson_ids(lesson_ids: list[int], max_chars: int = 120_000) -> str:
     """
     Concatenate context for multiple lessons (quiz generation).
 
@@ -103,7 +102,7 @@ def assemble_text_for_lesson_ids(lesson_ids: list[UUID], max_chars: int = 120_00
     sb = get_supabase()
     for lid in lesson_ids:
         try:
-            res = sb.table("lessons").select("*").eq("id", str(lid)).single().execute()
+            res = sb.table("lessons").select("*").eq("id", lid).single().execute()
         except APIError:
             continue
         lesson = dict(res.data or {})

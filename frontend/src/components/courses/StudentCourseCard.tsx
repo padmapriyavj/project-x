@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Card } from '@/components/ui/Card'
 import type { Course } from '@/lib/api/types/course'
 
-type Props = { course: Course }
+type Props = { course: Pick<Course, 'id' | 'name'> & { description?: string | null } }
 
 export function StudentCourseCard({ course }: Props) {
   return (

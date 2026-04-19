@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
 
 from engagement.scoring.mastery import apply_mastery_for_attempt
 from engagement.scoring.rules import compute_base_coins
@@ -26,9 +25,9 @@ from intelligence.quiz.schemas import AnswerInput, ScoreAttemptResult
 
 def score_attempt(
     *,
-    quiz_id: UUID,
-    attempt_id: UUID,
-    user_id: UUID,
+    quiz_id: int,
+    attempt_id: int,
+    user_id: int,
     answers: list[AnswerInput],
 ) -> ScoreAttemptResult:
     """
@@ -38,9 +37,10 @@ def score_attempt(
     quiz = get_quiz_row(quiz_id)
     attempt = get_attempt_row(attempt_id)
 
-    if str(attempt.get("user_id")) != str(user_id):
+    att_uid = attempt.get("user_id")
+    if att_uid is None or int(att_uid) != int(user_id):
         raise ValueError("Attempt does not belong to user")
-    if str(attempt.get("quiz_id")) != str(quiz_id):
+    if int(attempt.get("quiz_id")) != int(quiz_id):
         raise ValueError("Attempt does not match quiz")
     if attempt.get("completed_at"):
         raise ValueError("Attempt already scored")
@@ -58,7 +58,7 @@ def score_attempt(
     ordered = sorted(questions, key=lambda q: int(q.get("question_order") or 0))
     rows: list[dict[str, Any]] = []
     graded: list[tuple[bool, int]] = []
-    concept_results: list[tuple[UUID, bool]] = []
+    concept_results: list[tuple[int, bool]] = []
 
     for q in ordered:
         qid = str(q["id"])
@@ -68,11 +68,11 @@ def score_attempt(
         ok = str(q.get("correct_choice") or "").upper() == str(a.selected_choice).upper()
         graded.append((ok, a.time_taken_ms))
         cid_raw = q.get("concept_id")
-        if cid_raw:
-            concept_results.append((UUID(str(cid_raw)), ok))
+        if cid_raw is not None and cid_raw != "":
+            concept_results.append((int(cid_raw), ok))
         rows.append(
             {
-                "question_id": qid,
+                "question_id": int(q["id"]),
                 "selected_choice": a.selected_choice,
                 "is_correct": ok,
                 "time_taken_ms": a.time_taken_ms,

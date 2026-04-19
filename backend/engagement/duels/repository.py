@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from postgrest.exceptions import APIError
 
 from intelligence.betcha.client import get_supabase
 
 
-def insert_duel_room(*, room_id: str, quiz_id: UUID, host_user_id: UUID) -> None:
+def insert_duel_room(*, room_id: str, quiz_id: int, host_user_id: int) -> None:
     sb = get_supabase()
     row = {
         "id": room_id,
-        "quiz_id": str(quiz_id),
-        "host_user_id": str(host_user_id),
+        "quiz_id": int(quiz_id),
+        "host_user_id": int(host_user_id),
         "status": "waiting",
     }
     sb.table("duel_rooms").insert(row).execute()
