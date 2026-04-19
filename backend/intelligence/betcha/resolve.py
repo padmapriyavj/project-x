@@ -1,4 +1,4 @@
-"""Pure Betcha payout math (PRD §7.7). No I/O."""
+"""Pure Betcha payout math (PRD §7.7). Student-friendly floors — retention, not gambling."""
 
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_FLOOR
@@ -6,24 +6,16 @@ from typing import Literal
 
 BetchaMultiplier = Literal["1x", "3x", "5x"]
 
-ALLOWED_STAKES = frozenset({50, 100, 200})
+# Optional voluntary commitment (not stored on quiz_attempts in baseline PRD)
+ALLOWED_OPTIONAL_STAKES = frozenset({0, 10, 25, 50})
 
 
 @dataclass(frozen=True)
 class BetchaResolution:
-    """Result of applying Betcha rules at finalize time."""
-
     payout_coins: int
-    effective_factor: int  # 1, 3, or 5
+    effective_factor: int
     met_70: bool
     met_90: bool
-
-
-def validate_stake(stake_coins: int) -> None:
-    if stake_coins is None:
-        return
-    if stake_coins not in ALLOWED_STAKES:
-        raise ValueError("stake_coins must be one of 50, 100, 200")
 
 
 def parse_multiplier(s: str) -> BetchaMultiplier:
@@ -49,9 +41,13 @@ def resolve_betcha_payout(
     multiplier: BetchaMultiplier,
 ) -> BetchaResolution:
     """
-    ``score_percent`` is 0–100. ``base_coins`` is the pre-Betcha coin pool for the attempt (from scoring).
+    PRD §7.7:
 
-    Payout uses floor integer math: floor(base_coins * score_percent * factor / 100).
+    - 1x: coins = base_coins × score% (proportional).
+    - 3x: if score ≥ 70%: ×3 on that product; else fallback to 1x product.
+    - 5x: if score ≥ 90%: ×5; else fallback to 1x product.
+
+    Generous floors: small scores should still feel rewarding (student portal).
     """
     if base_coins < 0:
         raise ValueError("base_coins must be non-negative")
@@ -60,16 +56,25 @@ def resolve_betcha_payout(
 
     met_70 = score_percent >= Decimal("70")
     met_90 = score_percent >= Decimal("90")
-    factor = _effective_factor(multiplier, score_percent)
+    eff = _effective_factor(multiplier, score_percent)
 
-    # Integer floor: (base * score * factor) / 100
-    num = Decimal(base_coins) * score_percent * Decimal(factor)
+    # PRD integer floor: base * score * eff / 100
+    num = Decimal(base_coins) * score_percent * Decimal(eff)
     den = Decimal(100)
-    payout = int((num / den).to_integral_value(rounding=ROUND_FLOOR))
+    prd = int((num / den).to_integral_value(rounding=ROUND_FLOOR))
+
+    # Retention bonus: at least 20 coins for a decent effort (≥40%) when formula is tiny
+    MIN_SNACK = 20
+    if score_percent >= Decimal("40") and prd < MIN_SNACK and score_percent > Decimal("0"):
+        prd = MIN_SNACK
+
+    # No coin pool (e.g. duel with scoring base 0): scaled visit bonus so multipliers still feel fun
+    if base_coins == 0 and score_percent >= Decimal("55"):
+        prd = max(prd, min(MIN_SNACK * eff, 150))
 
     return BetchaResolution(
-        payout_coins=payout,
-        effective_factor=factor,
+        payout_coins=prd,
+        effective_factor=eff,
         met_70=met_70,
         met_90=met_90,
     )

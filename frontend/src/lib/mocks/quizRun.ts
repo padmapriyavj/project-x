@@ -60,8 +60,6 @@ export type QuizRunLocationState = {
   courseName?: string
   /** Optional server-backed quiz session */
   api?: QuizRunApiContext
-  /** Betcha stake when using ``api`` (server accepts 50, 100, or 200). */
-  stakeCoins?: 50 | 100 | 200
   /** Live quiz room (duel / tempo / practice with backend). */
   realtime?: QuizRealtimeContext
 }

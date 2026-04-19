@@ -201,13 +201,11 @@ export function QuizRunnerPage() {
       queueMicrotask(() => setBetchaLocked(true))
       return
     }
-    const stake = run.stakeCoins ?? 50
     void (async () => {
       try {
         const res = await placeBetcha(token, run.api!.quizId, {
-          attempt_id: parseInt(run.api!.attemptId, 10),
+          attempt_id: parseInt(run.api!.attemptId, 10) ?? 0,
           multiplier: toMultiplierLabel(run.betcha),
-          stake_coins: stake,
         })
         setCoinsFromBackend(res.coins_balance_after)
         patchUser({ coins: res.coins_balance_after })

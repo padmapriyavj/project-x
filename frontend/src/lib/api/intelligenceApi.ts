@@ -1,5 +1,23 @@
 import { apiFetch } from '@/lib/api/client'
 
+/** FastAPI often returns `{ "detail": "..." }` — show the message, not raw JSON. */
+function errorFromResponseBody(body: string, status: number): Error {
+  const raw = body.trim() || `${status}`
+  if (raw.startsWith('{')) {
+    try {
+      const j = JSON.parse(raw) as { detail?: unknown }
+      if (typeof j.detail === 'string') return new Error(j.detail)
+      if (Array.isArray(j.detail) && j.detail[0] && typeof j.detail[0] === 'object' && j.detail[0] !== null) {
+        const first = j.detail[0] as { msg?: string }
+        if (typeof first.msg === 'string') return new Error(first.msg)
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return new Error(raw)
+}
+
 async function authedJson<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const res = await apiFetch(path, {
     ...init,
@@ -10,7 +28,7 @@ async function authedJson<T>(path: string, token: string, init: RequestInit = {}
     },
   })
   const text = await res.text()
-  if (!res.ok) throw new Error(text || `${res.status}`)
+  if (!res.ok) throw errorFromResponseBody(text, res.status)
   return text ? (JSON.parse(text) as T) : ({} as T)
 }
 
@@ -172,13 +190,11 @@ export async function scoreQuizAttempt(
 export type PlaceBetchaBody = {
   attempt_id: number
   multiplier: '1x' | '3x' | '5x'
-  stake_coins: 50 | 100 | 200
 }
 
 export type PlaceBetchaResponse = {
   attempt_id: number
   multiplier: string
-  stake_coins: number
   coins_balance_after: number
 }
 

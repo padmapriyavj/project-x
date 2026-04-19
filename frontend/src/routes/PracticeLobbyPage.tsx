@@ -141,7 +141,6 @@ export function PracticeLobbyPage() {
         lessonId: lessonIdStr,
         courseName,
         api: { quizId: String(started.quiz_id), attemptId: String(started.attempt_id) },
-        stakeCoins: 50,
       }
       navigate(`/student/quiz/${encodeURIComponent(roomId)}`, { state })
     } catch (e) {

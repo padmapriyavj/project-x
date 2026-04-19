@@ -1,4 +1,4 @@
-"""FastAPI routes for Betcha (PRD §10 quiz runtime; PERSON_B)."""
+"""FastAPI routes for Betcha (PRD §10 quiz runtime)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/v1", tags=["Betcha"])
 @router.post(
     "/quizzes/{quiz_id}/betcha",
     response_model=PlaceBetchaResponse,
-    summary="Place Betcha wager (upfront stake)",
+    summary="Choose Betcha multiplier (no coin lock — everyone can play)",
 )
 async def post_quiz_betcha(
     quiz_id: int,
@@ -30,7 +30,6 @@ async def post_quiz_betcha(
             quiz_id=quiz_id,
             attempt_id=body.attempt_id,
             multiplier=body.multiplier,
-            stake_coins=body.stake_coins,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
@@ -40,7 +39,6 @@ async def post_quiz_betcha(
     return PlaceBetchaResponse(
         attempt_id=body.attempt_id,
         multiplier=body.multiplier,
-        stake_coins=body.stake_coins,
         coins_balance_after=balance,
     )
 
@@ -48,11 +46,7 @@ async def post_quiz_betcha(
 @router.post(
     "/quiz-attempts/{attempt_id}/finalize",
     response_model=FinalizeBetchaResponse,
-    summary="Finalize attempt Betcha resolution",
-    description=(
-        "Apply PRD §7.7 payout when a wager exists. Pass ``score_percent`` and ``base_coins`` from the quiz "
-        "scoring step. If no wager was placed, ``betcha_applied`` is false."
-    ),
+    summary="Apply Betcha payout (when multiplier was set)",
 )
 async def post_quiz_attempt_finalize(
     attempt_id: int,
