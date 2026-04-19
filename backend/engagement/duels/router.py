@@ -9,9 +9,11 @@ from engagement.duels.schemas import (
     DuelCreateBody,
     DuelCreateResponse,
     DuelJoinResponse,
+    DuelRoomInfoResponse,
     DuelSettleBody,
     DuelSettleResponse,
 )
+from engagement.duels import repository as duel_repo
 from engagement.duels import service as duel_service
 from intelligence.betcha.deps import get_current_user_id
 
@@ -28,6 +30,20 @@ async def post_create_duel(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     return DuelCreateResponse(room_id=out["room_id"], quiz_id=out["quiz_id"], status=out["status"])
+
+
+@router.get("/{room_id}", response_model=DuelRoomInfoResponse)
+async def get_duel_room(room_id: str, user_id: int = Depends(get_current_user_id)) -> DuelRoomInfoResponse:
+    """Return quiz id + status so invite links can hydrate the quiz runner without React location state."""
+    _ = user_id
+    row = duel_repo.get_duel_room(room_id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Duel room not found")
+    return DuelRoomInfoResponse(
+        room_id=room_id,
+        quiz_id=int(row["quiz_id"]),
+        status=str(row.get("status") or "waiting"),
+    )
 
 
 @router.post("/{room_id}/join", response_model=DuelJoinResponse)

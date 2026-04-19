@@ -48,5 +48,5 @@ export function useTempoFireListener() {
       disconnectQuizRoom(socket)
       socketRef.current = null
     }
-  }, [token, userId, navigate])
+  }, [token, userId, role, navigate])
 }

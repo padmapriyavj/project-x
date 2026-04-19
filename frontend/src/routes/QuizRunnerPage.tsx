@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 
 import { Button } from '@/components/ui/Button'
 import { useQuizRoomConnection } from '@/hooks/useQuizRoomConnection'
@@ -8,6 +8,7 @@ import { FinnMascot } from '@/components/finn/FinnMascot'
 import { CountdownTimer } from '@/components/quiz/CountdownTimer'
 import { QuestionCard } from '@/components/quiz/QuestionCard'
 import { Spinner } from '@/components/ui/Spinner'
+import { createDuelAttempt, getDuelRoom, joinDuel } from '@/lib/api/duelsApi'
 import { getApiBaseUrl } from '@/lib/env'
 import { getQuizWithRetry, placeBetcha, scoreQuizAttempt, type ScoreAnswerInput } from '@/lib/api/intelligenceApi'
 import {
@@ -81,7 +82,12 @@ export function QuizRunnerPage() {
   const decodedRoomId = roomId ? decodeURIComponent(roomId) : undefined
   const location = useLocation()
   const navigate = useNavigate()
-  const run = location.state as QuizRunLocationState | null
+  const [searchParams] = useSearchParams()
+  const locationState = location.state as QuizRunLocationState | null
+  const [duelInviteRun, setDuelInviteRun] = useState<QuizRunLocationState | null>(null)
+  const [duelInviteErr, setDuelInviteErr] = useState<string | null>(null)
+  const [duelInviteLoading, setDuelInviteLoading] = useState(false)
+  const run = locationState ?? duelInviteRun
   const useRealtime = Boolean(run?.realtime && decodedRoomId)
   const isApiSolo = Boolean(run && !useRealtime && run.api)
   const socket = useQuizRoomConnection(decodedRoomId, { skip: !useRealtime })
@@ -91,7 +97,45 @@ export function QuizRunnerPage() {
   const setCoinsFromBackend = useStudentEconomyStore((s) => s.setCoinsFromBackend)
   const patchUser = useAuthStore((s) => s.patchUser)
 
-  const [betchaLocked, setBetchaLocked] = useState(() => !run?.api)
+  /** Opponent opens shared link ``/student/quiz/:roomId?join=1`` — hydrate duel without React location state. */
+  useEffect(() => {
+    if (locationState || !decodedRoomId || !token) return
+    if (searchParams.get('join') !== '1') return
+    if (decodedRoomId.startsWith('mock-') || decodedRoomId.startsWith('practice-')) return
+    let cancelled = false
+    setDuelInviteLoading(true)
+    setDuelInviteErr(null)
+    void (async () => {
+      try {
+        const meta = await getDuelRoom(token, decodedRoomId)
+        await joinDuel(token, decodedRoomId)
+        const att = await createDuelAttempt(token, decodedRoomId)
+        if (cancelled) return
+        setDuelInviteRun({
+          mode: 'duel',
+          betcha: 1,
+          lessonId: '',
+          courseName: 'Duel',
+          api: { quizId: String(att.quiz_id), attemptId: String(att.attempt_id) },
+          realtime: {
+            quizId: String(meta.quiz_id),
+            mode: 'duel',
+            attemptId: String(att.attempt_id),
+          },
+        })
+      } catch (e) {
+        if (!cancelled) {
+          setDuelInviteErr(e instanceof Error ? e.message : 'Could not open duel invite.')
+        }
+      } finally {
+        if (!cancelled) setDuelInviteLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [locationState, decodedRoomId, token, searchParams])
+
   const [betchaError, setBetchaError] = useState<string | null>(null)
   const [qIndex, setQIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
@@ -106,8 +150,8 @@ export function QuizRunnerPage() {
   const [wsTotal, setWsTotal] = useState(0)
   const [wsIndex, setWsIndex] = useState(0)
   const [wsError, setWsError] = useState<string | null>(null)
-  const duelStartSent = useRef(false)
-  const wsJoined = useRef(false)
+  /** Last ``room:state`` from server (lobby / active / completed). */
+  const [wsRoomSnapshot, setWsRoomSnapshot] = useState<RoomStatePayload | null>(null)
   const wsCompleteHandled = useRef(false)
   const lastSpokenQuestionId = useRef<string | null>(null)
 
@@ -202,8 +246,6 @@ export function QuizRunnerPage() {
     if (!run || started.current) return
     started.current = true
     if (!run.api || !token) {
-      // One-shot: no server attempt → keep Betcha UI locked (mock / tempo without scoring row).
-      queueMicrotask(() => setBetchaLocked(true))
       return
     }
     void (async () => {
@@ -214,11 +256,9 @@ export function QuizRunnerPage() {
         })
         setCoinsFromBackend(res.coins_balance_after)
         patchUser({ coins: res.coins_balance_after })
-        setBetchaLocked(true)
         setBetchaError(null)
       } catch (e) {
         setBetchaError(e instanceof Error ? e.message : 'Could not place Betcha wager.')
-        setBetchaLocked(true)
       }
     })()
   }, [run, token, setCoinsFromBackend, patchUser])
@@ -383,18 +423,26 @@ export function QuizRunnerPage() {
     const onConnectErr = (e: Error) => {
       setWsError(e?.message || 'Could not connect to the quiz server (Socket.IO).')
     }
+    const onConnectOk = () => {
+      setWsError(null)
+    }
     socket.on('connect_error', onConnectErr)
+    socket.on('connect', onConnectOk)
     return () => {
       socket.off('connect_error', onConnectErr)
+      socket.off('connect', onConnectOk)
     }
   }, [socket, useRealtime])
 
   useEffect(() => {
+    setWsRoomSnapshot(null)
+  }, [decodedRoomId, run?.realtime?.quizId, run?.realtime?.mode])
+
+  /** Re-join after every Socket.IO connect/reconnect (server updates participant ``sid``). */
+  useEffect(() => {
     if (!socket || !run?.realtime || !decodedRoomId) return
     const { quizId, mode, attemptId } = run.realtime
-    const join = () => {
-      if (wsJoined.current) return
-      wsJoined.current = true
+    const emitJoin = () => {
       socket.emit('room:join', {
         room_id: decodedRoomId,
         quiz_id: quizId,
@@ -403,11 +451,10 @@ export function QuizRunnerPage() {
         display_name: null,
       })
     }
-    if (socket.connected) join()
-    else socket.on('connect', join)
+    socket.on('connect', emitJoin)
+    if (socket.connected) emitJoin()
     return () => {
-      socket.off('connect', join)
-      wsJoined.current = false
+      socket.off('connect', emitJoin)
     }
   }, [socket, run?.realtime, decodedRoomId])
 
@@ -437,11 +484,7 @@ export function QuizRunnerPage() {
 
     const onState = (...args: unknown[]) => {
       const payload = args[0] as RoomStatePayload
-      if (run.realtime?.mode !== 'duel') return
-      if (payload.status !== 'waiting') return
-      if (payload.participants.length < 2 || duelStartSent.current) return
-      duelStartSent.current = true
-      socket.emit('quiz:start', { room_id: decodedRoomId })
+      setWsRoomSnapshot(payload)
     }
 
     socket.on('quiz:question', onQuestion)
@@ -524,13 +567,35 @@ export function QuizRunnerPage() {
     setTimerKey((k) => k + 1)
   }, [run, useRealtime, socket, wsQuestion, qIndex, selected, correctCount, finishRun, apiQuizQuestions])
 
+  if (duelInviteLoading) {
+    return (
+      <section className="text-left" aria-label="Quiz">
+        <Spinner label="Joining duel…" />
+      </section>
+    )
+  }
+
+  if (duelInviteErr) {
+    return (
+      <section className="text-left" aria-label="Quiz">
+        <h1 className="text-foreground mb-2 text-xl">Could not join duel</h1>
+        <p className="text-danger mb-4 max-w-md text-sm" role="alert">
+          {duelInviteErr}
+        </p>
+        <Link to="/student/practice" className="text-primary text-sm underline-offset-2 hover:underline">
+          Back to practice
+        </Link>
+      </section>
+    )
+  }
+
   if (!run) {
     return (
       <section className="text-left" aria-label="Quiz">
         <h1 className="text-foreground mb-2 text-xl">No quiz session</h1>
         <p className="text-foreground/80 mb-4 max-w-md text-sm">
-          This page needs navigation state from the practice lobby or Tempo flow (Betcha and mode).
-          Opening this URL directly will not start a quiz.
+          Open this page from the practice lobby, a Tempo link, or use an invite link that ends with{' '}
+          <span className="font-mono">?join=1</span> for a duel.
         </p>
         <div className="flex flex-wrap gap-4 text-sm font-medium">
           <Link
@@ -581,16 +646,54 @@ export function QuizRunnerPage() {
 
   const question = useRealtime ? wsQuestion : run?.api ? apiQuizQuestions?.[qIndex] : mockQuizQuestions[qIndex]
   if (!question) {
+    const modeRt = run?.realtime?.mode
+    const nPart = wsRoomSnapshot?.participants?.length ?? 0
+    const st = wsRoomSnapshot?.status
+    let statusLine = useRealtime ? 'Connecting to quiz room…' : 'No question loaded.'
+    if (useRealtime && socket?.connected && wsRoomSnapshot && modeRt === 'duel' && st === 'waiting' && nPart < 2) {
+      statusLine =
+        'Waiting for your opponent — send them this page’s room link (browser address bar). When they join, the duel starts automatically.'
+    } else if (useRealtime && socket?.connected && wsRoomSnapshot && modeRt === 'tempo' && st === 'waiting') {
+      statusLine = 'Joined the room. Starting…'
+    } else if (useRealtime && socket?.connected && wsRoomSnapshot && st === 'active' && !wsQuestion) {
+      statusLine = 'Loading question…'
+    } else if (useRealtime && !socket?.connected) {
+      statusLine = 'Connecting to quiz server…'
+    }
+
     return (
       <section className="text-left" aria-label="Quiz">
-        <p className="text-foreground/80 text-sm">
-          {useRealtime ? 'Connecting to quiz room…' : 'No question loaded.'}
-        </p>
+        <p className="text-foreground/80 text-sm">{statusLine}</p>
+        {useRealtime && modeRt === 'duel' && st === 'waiting' && nPart < 2 && decodedRoomId ? (
+          <div className="mt-4 max-w-lg space-y-2">
+            <p className="text-foreground/65 text-xs">Room id (share with opponent):</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="bg-background border-border text-foreground rounded border px-2 py-1 font-mono text-xs">
+                {decodedRoomId}
+              </code>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const url = `${window.location.origin}/student/quiz/${encodeURIComponent(decodedRoomId)}?join=1`
+                  void navigator.clipboard.writeText(url).catch(() => {})
+                }}
+              >
+                Copy invite link
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {useRealtime && !socket && !wsError ? (
+          <p className="text-foreground/60 mt-2 text-xs">Set VITE_API_BASE_URL or VITE_WS_BASE_URL so the client can reach Socket.IO.</p>
+        ) : null}
         {wsError ? (
           <p className="text-danger mt-2 text-sm" role="alert">
             {wsError}
           </p>
         ) : null}
+        {useRealtime ? <Spinner className="mt-6" label="Connecting…" /> : null}
       </section>
     )
   }

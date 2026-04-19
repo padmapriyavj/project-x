@@ -141,7 +141,13 @@ export function PracticeLobbyPage() {
   const startDuelHost = async () => {
     const qid = publishedQuizId.trim()
     if (!qid) {
-      setErr('Enter a published quiz UUID to host a duel.')
+      setErr('Enter a published quiz ID (numeric) to host a duel.')
+      return
+    }
+    if (!/^\d+$/.test(qid)) {
+      setErr(
+        'Quiz ID must be a whole number (e.g. 42). It is the quizzes.id in the database — not a lesson id. Use Solo mode first to generate a published quiz, then copy the id from the browser Network response or ask your professor.',
+      )
       return
     }
     if (!token) {
@@ -353,24 +359,25 @@ export function PracticeLobbyPage() {
               </p>
             </div>
           ) : (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-4">
               <TextField
                 id="duel-quiz-id"
-                label="Published quiz ID (UUID)"
+                label="Published quiz ID (number)"
                 value={publishedQuizId}
                 onChange={(e) => setPublishedQuizId(e.target.value)}
-                placeholder="00000000-0000-0000-0000-000000000000"
+                placeholder="e.g. 42"
               />
               <p className="text-foreground/70 text-xs">
-                Host creates a duel room and joins the quiz runner. Share the browser URL room segment with your
-                opponent; they use “Join existing duel” below.
+                Must be <strong className="text-foreground">published</strong> with at least one question. If you see{' '}
+                <span className="font-mono">Not Found</span>, that id does not exist or is not published for this
+                backend.
               </p>
               <TextField
                 id="duel-join-room"
-                label="Join existing duel (room id)"
+                label="Join existing duel (room id from host)"
                 value={duelRoomToJoin}
                 onChange={(e) => setDuelRoomToJoin(e.target.value)}
-                placeholder="short room id from host"
+                placeholder="e.g. abc123 — from host’s quiz URL"
               />
               <Button type="button" variant="secondary" disabled={busy} onClick={() => void joinDuelRoom()}>
                 Join duel room

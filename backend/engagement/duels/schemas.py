@@ -22,6 +22,14 @@ class DuelCreateResponse(BaseModel):
     )
 
 
+class DuelRoomInfoResponse(BaseModel):
+    """Public metadata for a duel lobby (for invite-link hydration)."""
+
+    room_id: str
+    quiz_id: int
+    status: str
+
+
 class DuelJoinResponse(BaseModel):
     room_id: str
     quiz_id: int

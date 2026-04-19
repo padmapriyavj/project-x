@@ -72,6 +72,11 @@ export function connectQuizRoom(
     ...(q ? { query: q } : {}),
     autoConnect: true,
     reconnection: true,
+    reconnectionAttempts: 12,
+    reconnectionDelay: 800,
+    reconnectionDelayMax: 12_000,
+    timeout: 25_000,
+    transports: ['websocket', 'polling'],
   })
   return socket
 }

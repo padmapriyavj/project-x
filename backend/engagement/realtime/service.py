@@ -56,6 +56,9 @@ class QuizRealtimeService:
         self.sio = sio
         self.store = RoomStore()
         self._lock = asyncio.Lock()
+        # O(1) disconnect / answer routing — avoid scanning every room under load.
+        self._sid_to_room: dict[str, str] = {}
+        self._user_to_room: dict[str, str] = {}
 
     def _parse_user_id(self, environ: dict, auth: dict | None) -> str | None:
         auth = auth or {}
@@ -86,18 +89,21 @@ class QuizRealtimeService:
 
     async def on_disconnect(self, sid: str) -> None:
         async with self._lock:
-            for rid in self.store.all_room_ids():
-                room = self.store.get(rid)
-                if not room:
-                    continue
-                to_drop = [u for u, p in room.participants.items() if p.sid == sid]
-                for u in to_drop:
-                    del room.participants[u]
-                    room.answers.pop(u, None)
-                    room.attempt_by_user.pop(u, None)
-                if not room.participants:
-                    room.cancel_timer()
-                    self.store.delete(rid)
+            rid = self._sid_to_room.pop(sid, None)
+            if not rid:
+                return
+            room = self.store.get(rid)
+            if not room:
+                return
+            to_drop = [u for u, p in room.participants.items() if p.sid == sid]
+            for u in to_drop:
+                del room.participants[u]
+                self._user_to_room.pop(u, None)
+                room.answers.pop(u, None)
+                room.attempt_by_user.pop(u, None)
+            if not room.participants:
+                room.cancel_timer()
+                self.store.delete(rid)
 
     async def on_room_join(self, sid: str, data: dict[str, Any]) -> None:
         try:
@@ -174,6 +180,9 @@ class QuizRealtimeService:
                     return
 
             if user_id in room.participants:
+                old_sid = room.participants[user_id].sid
+                if old_sid != sid:
+                    self._sid_to_room.pop(old_sid, None)
                 room.participants[user_id] = Participant(
                     user_id=user_id,
                     display_name=room.participants[user_id].display_name,
@@ -212,12 +221,28 @@ class QuizRealtimeService:
                     user_id=user_id, display_name=display, sid=sid
                 )
 
+            self._sid_to_room[sid] = body.room_id
+            self._user_to_room[user_id] = body.room_id
+
             await self.sio.enter_room(sid, body.room_id, namespace=NAMESPACE)
 
-            await self._emit_room_state(room)
-
-            if room.policy.auto_start_on_join and room.status == "waiting":
+            # Duel: start as soon as both players are present (no reliance on a flaky client ``quiz:start``).
+            if (
+                room.mode == "duel"
+                and room.status == "waiting"
+                and len(room.participants) >= 2
+            ):
                 await self._begin_questions_locked(room)
+                try:
+                    from engagement.duels.service import mark_duel_active
+
+                    mark_duel_active(room.room_id)
+                except ValueError:
+                    pass
+            elif room.policy.auto_start_on_join and room.status == "waiting":
+                await self._begin_questions_locked(room)
+            else:
+                await self._emit_room_state(room)
 
     async def on_quiz_start(self, sid: str, data: dict[str, Any]) -> None:
         try:
@@ -376,14 +401,23 @@ class QuizRealtimeService:
             if not room or user_id not in room.participants:
                 return
             del room.participants[user_id]
+            self._sid_to_room.pop(sid, None)
+            self._user_to_room.pop(user_id, None)
             await self.sio.leave_room(sid, body.room_id, namespace=NAMESPACE)
             if not room.participants:
                 room.cancel_timer()
                 self.store.delete(body.room_id)
 
     def _find_room_for_user(self, user_id: str) -> QuizRoomSession | None:
+        rid = self._user_to_room.get(user_id)
+        if rid:
+            room = self.store.get(rid)
+            if room and user_id in room.participants:
+                return room
+            self._user_to_room.pop(user_id, None)
         for room in self.store.all_sessions():
             if user_id in room.participants:
+                self._user_to_room[user_id] = room.room_id
                 return room
         return None
 
