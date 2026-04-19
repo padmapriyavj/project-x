@@ -10,6 +10,7 @@ from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
 from app_platform.auth.router import router as auth_router
+from app_platform.courses.router import router as courses_router
 from intelligence.betcha.router import router as betcha_router
 
 load_dotenv()
@@ -38,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(courses_router)
 app.include_router(betcha_router)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
