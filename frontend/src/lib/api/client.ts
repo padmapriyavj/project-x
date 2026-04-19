@@ -21,3 +21,32 @@ export async function apiFetch(
     credentials: withCredentials ? 'include' : 'omit',
   })
 }
+
+export async function apiFetchJson<T>(
+  path: string,
+  init: ApiRequestInit = {},
+): Promise<T> {
+  const res = await apiFetch(path, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...init.headers,
+    },
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `${res.status} ${res.statusText}`)
+  }
+  return res.json() as Promise<T>
+}
+
+export function apiFetchAuthed(
+  path: string,
+  token: string,
+  init: ApiRequestInit = {},
+): Promise<Response> {
+  return apiFetch(path, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, ...init.headers },
+  })
+}

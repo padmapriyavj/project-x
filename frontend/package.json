@@ -9,7 +9,7 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate:api": "openapi-typescript ./openapi-stub.yaml -o ./src/lib/api/schema.d.ts"
+    "generate:api": "node ./scripts/generate-api.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.2.9",

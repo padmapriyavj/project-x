@@ -1,12 +1,14 @@
 import { Link, Outlet } from 'react-router'
 
-import { useUiStore } from '@/stores/uiStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const navLinkClass =
   'text-secondary hover:text-primary font-medium transition-colors underline-offset-4 hover:underline'
 
 export function AppShell() {
-  const { sidebarOpen, toggleSidebar } = useUiStore()
+  const token = useAuthStore((s) => s.token)
+  const user = useAuthStore((s) => s.user)
+  const clearAuth = useAuthStore((s) => s.clearAuth)
 
   return (
     <div className="bg-background flex min-h-svh flex-col">
@@ -18,27 +20,39 @@ export function AppShell() {
           >
             Deductible
           </Link>
-          <nav className="flex flex-wrap items-center gap-4 text-sm">
-            <Link to="/login" className={navLinkClass}>
-              Log in
-            </Link>
-            <Link to="/signup" className={navLinkClass}>
-              Sign up
-            </Link>
-            <Link to="/student" className={navLinkClass}>
-              Student
-            </Link>
-            <Link to="/professor" className={navLinkClass}>
-              Professor
-            </Link>
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              className="border-divider text-foreground hover:bg-background rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors"
-              aria-expanded={sidebarOpen}
-            >
-              UI store: {sidebarOpen ? 'on' : 'off'}
-            </button>
+          <nav className="flex flex-wrap items-center justify-end gap-4 text-sm">
+            {token && user ? (
+              <>
+                <span className="text-foreground/80 hidden sm:inline">
+                  {user.display_name ?? user.email}
+                </span>
+                {user.role === 'student' ? (
+                  <Link to="/student" className={navLinkClass}>
+                    Dashboard
+                  </Link>
+                ) : (
+                  <Link to="/professor" className={navLinkClass}>
+                    Dashboard
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={() => clearAuth()}
+                  className="text-danger hover:text-danger/90 font-medium underline-offset-4 hover:underline"
+                >
+                  Log out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className={navLinkClass}>
+                  Log in
+                </Link>
+                <Link to="/signup" className={navLinkClass}>
+                  Sign up
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>

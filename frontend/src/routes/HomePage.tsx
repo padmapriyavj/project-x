@@ -8,8 +8,9 @@ export function HomePage() {
           Learning that shows up for you
         </h1>
         <p className="text-foreground/85 max-w-2xl text-lg leading-relaxed">
-          Tempos, duels, Finn the Fox, and your actual coursework — scaffold routes
-          are wired; dashboards and auth flows come next.
+          Tempos, duels, Finn the Fox, and your actual coursework. Log in to open
+          mocked student or professor dashboards, try Finn's greeting, and
+          iterate toward the live FastAPI contract.
         </p>
       </div>
       <p className="text-foreground/70 text-center text-sm">
