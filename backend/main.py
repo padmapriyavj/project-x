@@ -10,6 +10,7 @@ from postgrest.exceptions import APIError
 from supabase import Client, create_client
 from app_platform.auth.router import router as auth_router
 from app_platform.courses.router import router as courses_router
+from app_platform.dashboard.router import router as dashboard_router
 from intelligence.betcha.router import router as betcha_router
 from intelligence.concepts.router import router as concepts_router
 from intelligence.ingestion.router import router as ingestion_router
@@ -44,6 +45,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(courses_router)
+app.include_router(dashboard_router)
 app.include_router(betcha_router)
 app.include_router(concepts_router)
 app.include_router(ingestion_router)
