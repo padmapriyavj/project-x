@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
 import { BetchaSelector } from '@/components/betcha/BetchaSelector'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { studentDashboardFixture } from '@/lib/mocks/studentDashboard'
 import type { BetchaMultiplier, QuizRunLocationState, QuizRunMode } from '@/lib/mocks/quizRun'
 
@@ -31,56 +34,43 @@ export function PracticeLobbyPage() {
   return (
     <section className="text-left">
       <nav className="text-foreground/70 mb-4 text-sm">
-        <Link to="/student/practice" className="text-primary hover:underline">
+        <Link to="/student/practice" className="text-primary inline-flex min-h-11 items-center hover:underline">
           Practice
         </Link>
         <span className="mx-2">/</span>
         <span className="text-foreground">Lobby</span>
       </nav>
-      <h1 className="mb-1 text-2xl">Practice lobby</h1>
-      <p className="text-foreground/75 mb-6 text-sm">{courseName}</p>
+      <PageHeader title="Practice lobby" description={courseName} />
 
-      <fieldset className="border-divider/60 bg-surface mb-6 rounded-[var(--radius-md)] border p-4">
-        <legend className="text-foreground px-1 text-sm font-semibold">Mode</legend>
-        <div className="mt-2 flex flex-wrap gap-4 text-sm">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="radio"
-              name="mode"
-              checked={mode === 'solo'}
-              onChange={() => setMode('solo')}
-            />
-            Solo practice
-          </label>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="radio"
-              name="mode"
-              checked={mode === 'duel'}
-              onChange={() => setMode('duel')}
-            />
-            Duel (invite stub)
-          </label>
-        </div>
-        {mode === 'duel' ? (
-          <p className="text-foreground/70 mt-3 text-xs">
-            Invite flow: share room id with a classmate once Socket.IO rooms exist
-            (PRD §7.5). For now, duel mode still runs the mock single-player shell.
-          </p>
-        ) : null}
-      </fieldset>
+      <Card padding="md" className="mb-6">
+        <fieldset>
+          <legend className="text-foreground px-1 text-sm font-semibold">Mode</legend>
+          <div className="mt-3 flex flex-wrap gap-4 text-sm">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2">
+              <input type="radio" name="mode" checked={mode === 'solo'} onChange={() => setMode('solo')} />
+              Solo practice
+            </label>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2">
+              <input type="radio" name="mode" checked={mode === 'duel'} onChange={() => setMode('duel')} />
+              Duel (invite stub)
+            </label>
+          </div>
+          {mode === 'duel' ? (
+            <p className="text-foreground/70 mt-3 text-xs">
+              Invite flow: share room id with a classmate once Socket.IO rooms exist. For now, duel mode still runs
+              the mock single-player shell.
+            </p>
+          ) : null}
+        </fieldset>
+      </Card>
 
       <div className="mb-6 max-w-lg">
         <BetchaSelector value={betcha} onChange={setBetcha} />
       </div>
 
-      <button
-        type="button"
-        onClick={startQuiz}
-        className="bg-primary text-surface rounded-[var(--radius-sm)] px-5 py-2.5 text-sm font-semibold"
-      >
+      <Button type="button" onClick={startQuiz}>
         Start quiz
-      </button>
+      </Button>
     </section>
   )
 }

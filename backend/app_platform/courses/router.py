@@ -1,19 +1,14 @@
 import secrets
 import string
 from typing import Annotated
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-
+from postgrest.exceptions import APIError
 from app_platform.auth.dependencies import get_current_user
-from database import get_db
-from models.course import Course
-from models.enrollment import Enrollment
+from database import get_supabase
 from models.user import User
 
 from .schemas import (
+    CourseJoinInfo,
     CourseResponse,
     CreateCourseRequest,
     EnrollRequest,
@@ -25,54 +20,70 @@ router = APIRouter(prefix="/api/v1/courses", tags=["courses"])
 
 _JOIN_ALPHABET = string.ascii_uppercase + string.digits
 
+_COURSE_SELECT = (
+    "id,professor_id,name,description,schedule,join_code,created_at"
+)
+_STUDENT_SELECT = "id,email,display_name,avatar_config,coins,current_streak"
+
 
 def _generate_join_code() -> str:
     return "".join(secrets.choice(_JOIN_ALPHABET) for _ in range(6))
 
 
-def _course_or_404(db: Session, course_id: int) -> Course:
-    course = db.get(Course, course_id)
-    if course is None:
+def _course_row_or_404(course_id: int) -> dict:
+    sb = get_supabase()
+    try:
+        res = sb.table("courses").select(_COURSE_SELECT).eq("id", course_id).single().execute()
+    except APIError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
-    return course
+    return res.data
 
 
-def _user_enrolled(db: Session, user_id: int, course_id: int) -> bool:
-    row = db.execute(
-        select(Enrollment.id).where(
-            Enrollment.user_id == user_id,
-            Enrollment.course_id == course_id,
-        )
-    ).scalar_one_or_none()
-    return row is not None
+def _user_enrolled(user_id: int, course_id: int) -> bool:
+    sb = get_supabase()
+    r = (
+        sb.table("enrollments")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("course_id", course_id)
+        .limit(1)
+        .execute()
+    )
+    return bool(r.data)
+
+
+def _is_unique_violation(exc: APIError) -> bool:
+    err = str(exc).lower()
+    return "duplicate" in err or "unique" in err or "23505" in err
 
 
 @router.post("/", response_model=CourseResponse)
 def create_course(
     body: CreateCourseRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-) -> Course:
+) -> CourseResponse:
     if current_user.role != "professor":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Professor access required")
 
+    sb = get_supabase()
     description = body.description
-    for attempt in range(20):
-        course = Course(
-            professor_id=current_user.id,
-            name=body.name,
-            description=description,
-            schedule=body.schedule,
-            join_code=_generate_join_code(),
-        )
-        db.add(course)
+    for _ in range(20):
+        join_code = _generate_join_code()
         try:
-            db.commit()
-            db.refresh(course)
-            return course
-        except IntegrityError:
-            db.rollback()
-            continue
+            ins = sb.table("courses").insert(
+                {
+                    "professor_id": current_user.id,
+                    "name": body.name,
+                    "description": description,
+                    "schedule": body.schedule,
+                    "join_code": join_code,
+                }
+            ).execute()
+            return CourseResponse.model_validate(ins.data[0])
+        except APIError as e:
+            if _is_unique_violation(e):
+                continue
+            raise
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Could not allocate a unique join code",
@@ -82,35 +93,36 @@ def create_course(
 @router.get("/", response_model=list[CourseResponse])
 def list_courses(
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-) -> list[Course]:
+) -> list[CourseResponse]:
+    sb = get_supabase()
     if current_user.role == "professor":
-        return list(
-            db.execute(select(Course).where(Course.professor_id == current_user.id)).scalars().all()
-        )
-    return list(
-        db.execute(
-            select(Course)
-            .join(Enrollment, Enrollment.course_id == Course.id)
-            .where(Enrollment.user_id == current_user.id)
-        )
-        .scalars()
-        .all()
-    )
+        res = sb.table("courses").select(_COURSE_SELECT).eq("professor_id", current_user.id).execute()
+        return [CourseResponse.model_validate(row) for row in (res.data or [])]
+
+    enr = sb.table("enrollments").select("course_id").eq("user_id", current_user.id).execute()
+    course_ids = [row["course_id"] for row in (enr.data or [])]
+    if not course_ids:
+        return []
+    res = sb.table("courses").select(_COURSE_SELECT).in_("id", course_ids).execute()
+    return [CourseResponse.model_validate(row) for row in (res.data or [])]
+
+
+@router.get("/{course_id}/join-info", response_model=CourseJoinInfo)
+def get_course_join_info(course_id: int) -> CourseJoinInfo:
+    """Public: course id and name for shareable join links (no JWT)."""
+    course = _course_row_or_404(course_id)
+    return CourseJoinInfo(id=course["id"], name=course["name"])
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
 def get_course(
     course_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-) -> Course:
-    course = _course_or_404(db, course_id)
-    if course.professor_id != current_user.id and not _user_enrolled(
-        db, current_user.id, course_id
-    ):
+) -> CourseResponse:
+    course = _course_row_or_404(course_id)
+    if course["professor_id"] != current_user.id and not _user_enrolled(current_user.id, course_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-    return course
+    return CourseResponse.model_validate(course)
 
 
 @router.patch("/{course_id}", response_model=CourseResponse)
@@ -118,18 +130,29 @@ def update_course(
     course_id: int,
     body: UpdateCourseRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-) -> Course:
-    course = _course_or_404(db, course_id)
-    if course.professor_id != current_user.id:
+) -> CourseResponse:
+    course = _course_row_or_404(course_id)
+    if course["professor_id"] != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the course owner can update")
 
     data = body.model_dump(exclude_unset=True)
-    for key, value in data.items():
-        setattr(course, key, value)
-    db.commit()
-    db.refresh(course)
-    return course
+    if not data:
+        return CourseResponse.model_validate(course)
+
+    sb = get_supabase()
+    try:
+        upd = sb.table("courses").update(data).eq("id", course_id).execute()
+    except APIError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not update course",
+        ) from e
+    if not upd.data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not update course",
+        )
+    return CourseResponse.model_validate(upd.data[0])
 
 
 @router.post("/{course_id}/enroll", response_model=CourseResponse)
@@ -137,41 +160,46 @@ def enroll_in_course(
     course_id: int,
     body: EnrollRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-) -> Course:
+) -> CourseResponse:
     if current_user.role != "student":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Student access required")
 
-    course = _course_or_404(db, course_id)
-    if body.join_code.strip().upper() != course.join_code.strip().upper():
+    course = _course_row_or_404(course_id)
+    if body.join_code.strip().upper() != str(course["join_code"]).strip().upper():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid join code")
 
-    db.add(Enrollment(user_id=current_user.id, course_id=course_id))
+    sb = get_supabase()
     try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Already enrolled in this course",
-        ) from None
-    db.refresh(course)
-    return course
+        sb.table("enrollments").insert(
+            {"user_id": current_user.id, "course_id": course_id}
+        ).execute()
+    except APIError as e:
+        if _is_unique_violation(e):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Already enrolled in this course",
+            ) from e
+        raise
+
+    return CourseResponse.model_validate(course)
 
 
 @router.get("/{course_id}/students", response_model=list[StudentResponse])
 def list_course_students(
     course_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db),
-) -> list[User]:
-    course = _course_or_404(db, course_id)
-    if course.professor_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the course owner can view students")
+) -> list[StudentResponse]:
+    course = _course_row_or_404(course_id)
+    if course["professor_id"] != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the course owner can view students",
+        )
 
-    rows = db.execute(
-        select(User)
-        .join(Enrollment, Enrollment.user_id == User.id)
-        .where(Enrollment.course_id == course_id)
-    ).scalars().all()
-    return list(rows)
+    sb = get_supabase()
+    enr = sb.table("enrollments").select("user_id").eq("course_id", course_id).execute()
+    user_ids = [row["user_id"] for row in (enr.data or [])]
+    if not user_ids:
+        return []
+    res = sb.table("users").select(_STUDENT_SELECT).in_("id", user_ids).execute()
+    return [StudentResponse.model_validate(row) for row in (res.data or [])]

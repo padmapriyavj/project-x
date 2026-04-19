@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
-import { useQuizRoomConnection } from '@/hooks/useQuizRoomConnection'
 import { BetchaSelector } from '@/components/betcha/BetchaSelector'
+import { Button } from '@/components/ui/Button'
+import { useQuizRoomConnection } from '@/hooks/useQuizRoomConnection'
 import type { FinnMood } from '@/components/finn/FinnMascot'
 import { FinnMascot } from '@/components/finn/FinnMascot'
 import { CountdownTimer } from '@/components/quiz/CountdownTimer'
@@ -211,7 +212,7 @@ export function QuizRunnerPage() {
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="mx-auto mb-4 flex w-full max-w-2xl flex-wrap items-center justify-between gap-4">
         <p className="text-foreground/70 text-sm">
           Question {qIndex + 1} of {mockQuizQuestions.length}
         </p>
@@ -222,22 +223,26 @@ export function QuizRunnerPage() {
         />
       </div>
 
-      <QuestionCard
-        question={question}
-        selectedIndex={selected}
-        onSelect={setSelected}
-        disabled={reading}
-        focusResetKey={qIndex}
-      />
+      <div className="mx-auto w-full max-w-2xl">
+        <QuestionCard
+          question={question}
+          selectedIndex={selected}
+          onSelect={setSelected}
+          disabled={reading}
+          focusResetKey={qIndex}
+        />
+      </div>
 
-      <button
-        type="button"
-        className="bg-secondary text-surface mt-6 rounded-[var(--radius-sm)] px-5 py-2.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] disabled:opacity-50"
-        disabled={selected === null || reading}
-        onClick={() => void submitOrTimeoutFixed()}
-      >
-        Lock answer
-      </button>
+      <div className="mx-auto mt-6 w-full max-w-2xl">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={selected === null || reading}
+          onClick={() => void submitOrTimeoutFixed()}
+        >
+          Lock answer
+        </Button>
+      </div>
 
       {showSocketDemoHint ? (
         <p className="text-foreground/60 mt-4 max-w-xl text-xs">

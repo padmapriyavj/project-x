@@ -96,7 +96,7 @@ export function StudentCoachCta() {
   return (
     <Link
       to="/coach"
-      className="bg-primary text-surface shadow-soft inline-flex items-center justify-center rounded-[var(--radius-md)] px-5 py-3 text-sm font-semibold transition-opacity hover:opacity-95"
+      className="bg-primary text-surface shadow-soft inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] px-5 py-3 text-sm font-semibold transition-opacity hover:opacity-95 sm:w-auto"
     >
       Chat with Finn
     </Link>

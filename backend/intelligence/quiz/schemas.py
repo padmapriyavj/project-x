@@ -154,3 +154,6 @@ class ScoreAttemptResult(BaseModel):
     payout_coins: int | None = None
     betcha_effective_factor: int | None = None
     betcha_applied: bool = False
+    current_streak: int | None = None
+    streak_milestone_bonus_coins: int = 0
+    streak_already_active_today: bool = False

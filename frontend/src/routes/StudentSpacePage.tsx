@@ -50,7 +50,7 @@ export function StudentSpacePage() {
         <div>
           <h1 className="mb-1 text-2xl">Your space</h1>
           <p className="text-foreground/75 max-w-xl text-sm">
-            Fixed slots (PRD §7.12). Tap a slot to place something from inventory, or clear it.{' '}
+            Fixed slots (product brief section 7.12). Tap a slot to place something from inventory, or clear it.{' '}
             <Link to="/student/shop" className="text-primary font-medium underline-offset-2 hover:underline">
               Visit the shop
             </Link>
@@ -91,7 +91,7 @@ export function StudentSpacePage() {
                   key={slot.id}
                   type="button"
                   onClick={() => setActiveSlot(slot)}
-                  className="border-divider bg-surface hover:border-secondary flex min-h-[100px] flex-col items-center justify-center rounded-[var(--radius-md)] border p-3 text-center transition-colors"
+                  className="border-divider bg-surface hover:border-secondary flex min-h-[7.5rem] flex-col items-center justify-center rounded-[var(--radius-md)] border p-4 text-center transition-colors sm:min-h-[6.5rem]"
                 >
                   <span className="text-foreground/55 text-xs">{slot.label}</span>
                   {placed ? (
@@ -107,7 +107,10 @@ export function StudentSpacePage() {
       ) : null}
 
       <p className="text-foreground/65 mt-8 text-sm">
-        <Link to="/student" className="text-primary font-medium underline-offset-2 hover:underline">
+        <Link
+          to="/student"
+          className="text-primary inline-flex min-h-11 items-center font-medium underline-offset-2 hover:underline"
+        >
           Back to dashboard
         </Link>
       </p>
@@ -133,7 +136,7 @@ export function StudentSpacePage() {
                       clearSlot(activeSlot.id)
                       setActiveSlot(null)
                     }}
-                    className="text-danger mt-2 text-sm font-medium underline-offset-2 hover:underline"
+                    className="text-danger mt-2 inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
                   >
                     Remove back to inventory
                   </button>
@@ -155,7 +158,7 @@ export function StudentSpacePage() {
                       <button
                         type="button"
                         onClick={() => place(id)}
-                        className="border-divider hover:bg-background w-full rounded-[var(--radius-sm)] border px-3 py-2 text-left text-sm"
+                        className="border-divider hover:bg-background min-h-11 w-full rounded-[var(--radius-sm)] border px-3 py-2.5 text-left text-sm"
                       >
                         <span className="font-medium">{item.name}</span>
                         <span className="text-foreground/60 ml-2 font-mono text-xs">×{n}</span>

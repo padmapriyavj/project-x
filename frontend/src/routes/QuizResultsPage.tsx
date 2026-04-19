@@ -1,12 +1,16 @@
 import confetti from 'canvas-confetti'
 import { useEffect } from 'react'
-import { Link, useLocation, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import type { QuizResultsLocationState } from '@/lib/mocks/quizRun'
 
 export function QuizResultsPage() {
   const { roomId } = useParams<{ roomId: string }>()
   const location = useLocation()
+  const navigate = useNavigate()
   const data = location.state as QuizResultsLocationState | null
 
   useEffect(() => {
@@ -21,7 +25,10 @@ export function QuizResultsPage() {
     return (
       <section className="text-left">
         <p className="text-foreground/80 mb-4 text-sm">No results to show.</p>
-        <Link to="/student" className="text-primary text-sm font-medium underline">
+        <Link
+          to="/student"
+          className="text-primary inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
+        >
           Dashboard
         </Link>
       </section>
@@ -32,24 +39,20 @@ export function QuizResultsPage() {
 
   return (
     <section className="text-left">
-      <h1 className="mb-2 text-2xl">Quiz results</h1>
-      <p className="text-foreground/65 mb-6 font-mono text-xs">Room {roomId}</p>
+      <PageHeader title="Quiz results" description={<span className="font-mono text-xs">Room {roomId}</span>} />
 
-      <div className="bg-surface border-divider/60 mb-6 max-w-md rounded-[var(--radius-lg)] border p-6">
+      <Card padding="lg" className="mx-auto mb-6 max-w-md">
         <p className="font-heading text-foreground text-4xl">{pct}%</p>
         <p className="text-foreground/80 mt-2 text-sm">
           {data.correctCount} / {data.totalQuestions} correct · Mode: {data.mode}
         </p>
         <p className="text-gold mt-3 font-mono text-lg">+{data.coinsEarned} coins</p>
         <p className="text-foreground/75 mt-3 text-sm">{data.betchaOutcome}</p>
-      </div>
+      </Card>
 
-      <Link
-        to="/student"
-        className="bg-primary text-surface inline-flex rounded-[var(--radius-sm)] px-5 py-2.5 text-sm font-semibold"
-      >
+      <Button type="button" onClick={() => navigate('/student')}>
         Back to dashboard
-      </Link>
+      </Button>
     </section>
   )
 }

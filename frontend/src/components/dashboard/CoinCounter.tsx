@@ -2,7 +2,7 @@ type Props = { value: number }
 
 export function CoinCounter({ value }: Props) {
   return (
-    <div className="bg-surface shadow-soft border-divider/60 flex items-center gap-3 rounded-[var(--radius-md)] border px-4 py-3">
+    <div className="bg-surface shadow-soft border-divider/60 flex h-full min-h-[5.5rem] items-center gap-3 rounded-[var(--radius-md)] border px-4 py-3">
       <span className="text-gold text-2xl" aria-hidden>
         🪙
       </span>

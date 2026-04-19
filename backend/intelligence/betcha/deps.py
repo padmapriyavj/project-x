@@ -1,19 +1,20 @@
-"""Stub auth for Betcha routes; swap for JWT when auth is wired."""
+"""JWT auth for intelligence routes (Bearer token, same as platform)."""
 
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends
 
-'''
-Check with Person A on this implementation -> Should ask them to add X-User-Id header to the request
-'''
+from app_platform.auth.dependencies import get_current_user
+from models.user import User
+
+
+def user_int_id_to_uuid(user_id: int) -> UUID:
+    """Stable UUID for intelligence tables that expect UUID user ids."""
+    return UUID(int=user_id)
+
+
 async def get_current_user_id(
-    x_user_id: Annotated[UUID, Header(alias="X-User-Id")] = None,
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> UUID:
-    if x_user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required (stub: send X-User-Id header)",
-        )
-    return x_user_id
+    return user_int_id_to_uuid(current_user.id)

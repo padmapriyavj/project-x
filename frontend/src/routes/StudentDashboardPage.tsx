@@ -1,18 +1,18 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router'
 
+import { StudentCourseCard } from '@/components/courses/StudentCourseCard'
+import { JoinCourseModal } from '@/components/courses/JoinCourseModal'
+import { Button } from '@/components/ui/Button'
 import { CoinCounter } from '@/components/dashboard/CoinCounter'
-import {
-  StudentCoachCta,
-  StudentCourseCard,
-} from '@/components/dashboard/StudentCourseCard'
+import { StudentCoachCta } from '@/components/dashboard/StudentCourseCard'
 import { StreakFlame } from '@/components/dashboard/StreakFlame'
 import type { FinnMood } from '@/components/finn/FinnMascot'
 import { FinnMascot } from '@/components/finn/FinnMascot'
-import { queryKeys } from '@/lib/queryKeys'
-import { fetchStudentDashboardMock } from '@/lib/queries/dashboardQueries'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { useCoursesQuery } from '@/lib/queries/courseQueries'
 import { playFinnGreeting } from '@/lib/voice/playFinnGreeting'
+import { useAuthStore } from '@/stores/authStore'
 import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
 
 const moods: FinnMood[] = [
@@ -27,12 +27,10 @@ const moods: FinnMood[] = [
 export function StudentDashboardPage() {
   const [moodIndex, setMoodIndex] = useState(0)
   const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false)
 
-  const dashboard = useQuery({
-    queryKey: queryKeys.studentDashboard,
-    queryFn: fetchStudentDashboardMock,
-  })
-
+  const user = useAuthStore((s) => s.user)
+  const courses = useCoursesQuery()
   const coins = useStudentEconomyStore((s) => s.coins)
 
   const greeting = useMutation({
@@ -44,84 +42,85 @@ export function StudentDashboardPage() {
 
   const mood = moods[moodIndex] ?? 'neutral'
 
+  const title = `Welcome${user?.display_name ? `, ${user.display_name}` : ''}`
+
   return (
     <div className="text-left">
-      <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="mb-2 text-2xl">Student dashboard</h1>
-          <p className="text-foreground/75 max-w-xl text-sm">
-            Mock data via TanStack Query — swap the query function for real
-            `apiFetch` calls when Person A ships endpoints.{' '}
-            <Link
-              to="/student/practice"
-              className="text-primary font-medium underline-offset-2 hover:underline"
-            >
-              Practice hub
-            </Link>
-            {' · '}
-            <Link
-              to="/student/practice/duel-voice-preview"
-              className="text-primary font-medium underline-offset-2 hover:underline"
-            >
-              Duel voice preview
-            </Link>
-            {' · '}
-            <Link to="/student/shop" className="text-primary font-medium underline-offset-2 hover:underline">
-              Shop
-            </Link>
-            {' · '}
-            <Link to="/student/space" className="text-primary font-medium underline-offset-2 hover:underline">
-              Space
-            </Link>
-          </p>
+      <PageHeader
+        title={title}
+        description="Use the header to open Practice, Shop, Space, and Coach. Finn is here when you need a quick demo."
+        actions={
+          <Button type="button" onClick={() => setIsJoinModalOpen(true)}>
+            Join course
+          </Button>
+        }
+      />
+
+      <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_auto] lg:items-start">
+        <div className="order-2 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:order-1">
+          <StreakFlame days={user?.current_streak ?? 0} />
+          <CoinCounter value={coins} />
+          <div className="flex items-stretch justify-center sm:justify-start">
+            <StudentCoachCta />
+          </div>
         </div>
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-end">
+        <div className="order-1 flex flex-col items-center gap-3 lg:order-2 lg:items-end">
           <FinnMascot mood={mood} isSpeaking={greeting.isPending} />
-          <div className="flex flex-col gap-2 sm:items-end">
-            <button
-              type="button"
-              onClick={() => setMoodIndex((i) => (i + 1) % moods.length)}
-              className="border-divider text-foreground hover:bg-background rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs font-medium"
-            >
+          <div className="flex w-full max-w-xs flex-col gap-2 sm:max-w-none lg:items-end">
+            <Button variant="ghost" size="sm" type="button" onClick={() => setMoodIndex((i) => (i + 1) % moods.length)}>
               Cycle Finn mood (demo)
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => greeting.mutate()}
               disabled={greeting.isPending}
-              className="bg-secondary text-surface rounded-[var(--radius-sm)] px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              fullWidth
+              className="lg:w-auto"
             >
-              {greeting.isPending ? 'Playing…' : "Play Finn's greeting"}
-            </button>
+              {greeting.isPending ? 'Playing...' : "Play Finn's greeting"}
+            </Button>
             {voiceError ? (
-              <p className="text-danger max-w-xs text-right text-xs">{voiceError}</p>
+              <p className="text-danger text-center text-xs lg:text-right">{voiceError}</p>
             ) : null}
           </div>
         </div>
       </div>
 
-      {dashboard.isLoading ? (
-        <p className="text-foreground/70 text-sm">Loading your dashboard…</p>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="font-heading text-foreground text-xl sm:text-2xl">Your courses</h2>
+      </div>
+
+      {courses.isLoading ? (
+        <p className="text-foreground/70 text-sm">Loading your courses...</p>
       ) : null}
-      {dashboard.isError ? (
-        <p className="text-danger text-sm">Could not load dashboard.</p>
+      {courses.isError ? (
+        <p className="text-danger text-sm">Could not load courses.</p>
       ) : null}
 
-      {dashboard.data ? (
-        <>
-          <div className="mb-8 flex flex-wrap gap-4">
-            <StreakFlame days={dashboard.data.streakDays} />
-            <CoinCounter value={coins} />
-            <StudentCoachCta />
-          </div>
-          <h2 className="font-heading text-foreground mb-3 text-lg">Your courses</h2>
+      {courses.data ? (
+        courses.data.length > 0 ? (
           <div className="space-y-4">
-            {dashboard.data.courses.map((c) => (
+            {courses.data.map((c) => (
               <StudentCourseCard key={c.id} course={c} />
             ))}
           </div>
-        </>
+        ) : (
+          <div className="bg-surface shadow-soft border-divider/60 rounded-[var(--radius-lg)] border p-8 text-center sm:p-10">
+            <p className="text-foreground/70 mb-4 text-sm sm:text-base">
+              You haven&apos;t joined any courses yet.
+            </p>
+            <Button type="button" onClick={() => setIsJoinModalOpen(true)}>
+              Join your first course
+            </Button>
+          </div>
+        )
       ) : null}
+
+      <JoinCourseModal
+        isOpen={isJoinModalOpen}
+        onClose={() => setIsJoinModalOpen(false)}
+      />
     </div>
   )
 }

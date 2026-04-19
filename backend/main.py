@@ -8,12 +8,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from postgrest.exceptions import APIError
 from supabase import Client, create_client
-
 from app_platform.auth.router import router as auth_router
 from app_platform.courses.router import router as courses_router
 from app_platform.dashboard.router import router as dashboard_router
 from app_platform.shop.router import router as shop_router
 from intelligence.betcha.router import router as betcha_router
+from intelligence.concepts.router import router as concepts_router
+from intelligence.ingestion.router import router as ingestion_router
+from intelligence.quiz.router import router as quiz_router
+from app_platform.lessons.router import router as lessons_router
+from app_platform.materials.router import router as materials_router
+from engagement.router import router as engagement_router
 
 load_dotenv()
 
@@ -45,6 +50,12 @@ app.include_router(courses_router)
 app.include_router(dashboard_router)
 app.include_router(shop_router)
 app.include_router(betcha_router)
+app.include_router(concepts_router)
+app.include_router(ingestion_router)
+app.include_router(quiz_router)
+app.include_router(lessons_router)
+app.include_router(materials_router)
+app.include_router(engagement_router)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")

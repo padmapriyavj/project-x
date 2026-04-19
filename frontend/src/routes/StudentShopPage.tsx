@@ -3,7 +3,11 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 
 import { CoinCounter } from '@/components/dashboard/CoinCounter'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { SimpleModal } from '@/components/ui/SimpleModal'
+import { Spinner } from '@/components/ui/Spinner'
 import type { ShopCatalogItem, ShopCategory } from '@/lib/mocks/shopCatalog'
 import { queryKeys } from '@/lib/queryKeys'
 import { fetchShopCatalogMock } from '@/lib/queries/shopSpaceQueries'
@@ -50,23 +54,26 @@ export function StudentShopPage() {
 
   return (
     <section className="text-left">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-2xl">Shop & inventory</h1>
-          <p className="text-foreground/75 max-w-xl text-sm">
-            Mock storefront — coins and owned items persist in this browser.{' '}
-            <Link to="/student/space" className="text-primary font-medium underline-offset-2 hover:underline">
-              Open your space
-            </Link>{' '}
-            to place decor.
-          </p>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <PageHeader
+          className="mb-0 flex-1 sm:mb-0"
+          title="Shop and inventory"
+          description={
+            <>
+              Mock storefront — coins and owned items persist in this browser.{' '}
+              <Link to="/student/space" className="text-primary font-medium underline-offset-2 hover:underline">
+                Open your space
+              </Link>{' '}
+              to place decor.
+            </>
+          }
+        />
+        <div className="shrink-0 md:pb-1">
+          <CoinCounter value={coins} />
         </div>
-        <CoinCounter value={coins} />
       </div>
 
-      {catalog.isLoading ? (
-        <p className="text-foreground/70 text-sm">Loading catalog…</p>
-      ) : null}
+      {catalog.isLoading ? <Spinner label="Loading catalog…" /> : null}
       {catalog.isError ? (
         <p className="text-danger text-sm" role="alert">
           Could not load the shop catalog.
@@ -81,7 +88,7 @@ export function StudentShopPage() {
             role="tab"
             aria-selected={filter === f.id}
             onClick={() => setFilter(f.id)}
-            className={`rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`min-h-11 rounded-[var(--radius-sm)] border px-3 py-2 text-sm font-medium transition-colors ${
               filter === f.id
                 ? 'border-secondary bg-secondary text-surface'
                 : 'border-divider text-foreground hover:bg-background'
@@ -96,31 +103,31 @@ export function StudentShopPage() {
         <p className="text-foreground/70 text-sm">No items match this filter.</p>
       ) : null}
 
-      <ul className="grid gap-4 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => {
           const owned = inventoryCounts[item.id] ?? 0
           return (
-            <li
-              key={item.id}
-              className="border-divider bg-surface flex flex-col rounded-[var(--radius-lg)] border p-4"
-            >
-              <p className="text-foreground/60 text-xs uppercase tracking-wide">{item.category}</p>
-              <h2 className="font-heading mt-1 text-lg">{item.name}</h2>
-              <p className="text-foreground/75 mt-2 flex-1 text-sm">{item.description}</p>
-              <p className="text-foreground mt-3 font-mono text-sm">
-                {item.price} coins {owned > 0 ? `· owned ×${owned}` : null}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setPurchaseError(null)
-                  setConfirmItem(item)
-                }}
-                className="bg-primary text-surface mt-3 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-semibold disabled:opacity-50"
-                disabled={coins < item.price}
-              >
-                {coins < item.price ? 'Not enough coins' : 'Buy'}
-              </button>
+            <li key={item.id}>
+              <Card padding="md" className="flex h-full flex-col">
+                <p className="text-foreground/60 text-xs uppercase tracking-wide">{item.category}</p>
+                <h2 className="font-heading mt-1 text-lg">{item.name}</h2>
+                <p className="text-foreground/75 mt-2 flex-1 text-sm">{item.description}</p>
+                <p className="text-foreground mt-3 font-mono text-sm">
+                  {item.price} coins {owned > 0 ? `· owned ×${owned}` : null}
+                </p>
+                <Button
+                  type="button"
+                  className="mt-3"
+                  fullWidth
+                  disabled={coins < item.price}
+                  onClick={() => {
+                    setPurchaseError(null)
+                    setConfirmItem(item)
+                  }}
+                >
+                  {coins < item.price ? 'Not enough coins' : 'Buy'}
+                </Button>
+              </Card>
             </li>
           )
         })}
@@ -149,7 +156,10 @@ export function StudentShopPage() {
       </div>
 
       <p className="text-foreground/65 mt-8 text-sm">
-        <Link to="/student" className="text-primary font-medium underline-offset-2 hover:underline">
+        <Link
+          to="/student"
+          className="text-primary inline-flex min-h-11 items-center font-medium underline-offset-2 hover:underline"
+        >
           Back to dashboard
         </Link>
       </p>
@@ -173,24 +183,20 @@ export function StudentShopPage() {
                 {purchaseError}
               </p>
             ) : null}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={tryPurchase}
-                className="bg-secondary text-surface rounded-[var(--radius-sm)] px-4 py-2 text-sm font-semibold"
-              >
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Button type="button" variant="secondary" onClick={tryPurchase}>
                 Confirm
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => {
                   setConfirmItem(null)
                   setPurchaseError(null)
                 }}
-                className="border-divider rounded-[var(--radius-sm)] border px-4 py-2 text-sm"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </>
         ) : null}

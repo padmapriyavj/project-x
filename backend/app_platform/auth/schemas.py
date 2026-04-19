@@ -35,3 +35,8 @@ class AuthResponse(BaseModel):
     user: UserResponse
     access_token: str
     token_type: str = "bearer"
+
+
+class UserUpdateBody(BaseModel):
+    display_name: str | None = None
+    avatar_config: dict[str, Any] | None = None

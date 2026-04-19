@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { BetchaSelector } from '@/components/betcha/BetchaSelector'
+import { Button } from '@/components/ui/Button'
+import { PageHeader } from '@/components/ui/PageHeader'
 import type { BetchaMultiplier, QuizRunLocationState } from '@/lib/mocks/quizRun'
 
 /**
- * PRD §7.4 — Tempo delivery: Betcha first, then join quiz room (same runner shell as practice).
+ * Tempo delivery: Betcha first, then join quiz room (same runner shell as practice).
  * Uses mock navigation until Person A schedules Tempos and Person B exposes rooms.
  */
 export function TempoScreenPage() {
@@ -27,26 +29,25 @@ export function TempoScreenPage() {
   return (
     <section className="text-left">
       <nav className="text-foreground/70 mb-4 text-sm">
-        <Link to="/student" className="text-primary hover:underline">
+        <Link to="/student" className="text-primary inline-flex min-h-11 items-center hover:underline">
           Dashboard
         </Link>
       </nav>
-      <h1 className="mb-2 text-2xl">Tempo</h1>
-      <p className="text-foreground/75 mb-6 max-w-xl text-sm">
-        Instance <span className="font-mono">{instanceId}</span> — place Betcha,
-        then join the shared quiz runner (mock until backend schedules and sockets
-        fire).
-      </p>
+      <PageHeader
+        title="Tempo"
+        description={
+          <>
+            Instance <span className="font-mono">{instanceId}</span> — place Betcha, then join the shared quiz runner
+            (mock until backend schedules and sockets fire).
+          </>
+        }
+      />
       <div className="mb-6 max-w-lg">
         <BetchaSelector value={betcha} onChange={setBetcha} />
       </div>
-      <button
-        type="button"
-        onClick={joinTempo}
-        className="bg-primary text-surface rounded-[var(--radius-sm)] px-5 py-2.5 text-sm font-semibold"
-      >
+      <Button type="button" onClick={joinTempo}>
         Join Tempo quiz
-      </button>
+      </Button>
     </section>
   )
 }
