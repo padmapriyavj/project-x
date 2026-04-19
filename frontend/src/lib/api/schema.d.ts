@@ -769,7 +769,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me/inventory": {
+    "/me/inventory": {
         parameters: {
             query?: never;
             header?: never;

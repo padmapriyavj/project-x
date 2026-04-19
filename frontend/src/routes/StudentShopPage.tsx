@@ -18,12 +18,37 @@ import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
 const CATEGORY_FILTERS = [
   { id: 'all' as const, label: 'All' },
   { id: 'finn_skin', label: 'Finn skins' },
-  { id: 'space_item', label: 'Space' },
   { id: 'backdrop', label: 'Backdrops' },
   { id: 'streak_freeze', label: 'Streak freeze' },
 ] as const
 
 type FilterId = (typeof CATEGORY_FILTERS)[number]['id']
+
+const CATEGORY_ICONS: Record<string, string> = {
+  finn_skin: '🦊',
+  backdrop: '🖼️',
+  streak_freeze: '❄️',
+}
+
+const ITEM_ICONS: Record<string, string> = {
+  'Cool Fox': '🦊',
+  'Party Fox': '🎉',
+  'Space Fox': '🚀',
+  'Cozy Bookshelf': '📚',
+  'Study Chair': '🪑',
+  'Warm Desk Lamp': '💡',
+  'Spinning Globe': '🌍',
+  'Coffee Maker': '☕',
+  'Mountain View': '🏔️',
+  'City Night': '🌃',
+  'Enchanted Forest': '🌲',
+  'Ocean Waves': '🌊',
+  'Streak Freeze': '❄️',
+}
+
+function getItemIcon(name: string, category: string): string {
+  return ITEM_ICONS[name] ?? CATEGORY_ICONS[category] ?? '📦'
+}
 
 export function StudentShopPage() {
   const [filter, setFilter] = useState<FilterId>('all')
@@ -131,10 +156,16 @@ export function StudentShopPage() {
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => {
           const owned = ownedByShopItemId.get(item.id) ?? 0
+          const icon = getItemIcon(item.name, item.category)
           return (
             <li key={item.id}>
               <Card padding="md" className="flex h-full flex-col">
-                <p className="text-foreground/60 text-xs uppercase tracking-wide">{item.category}</p>
+                <div className="mb-3 flex items-center justify-center">
+                  <span className="text-5xl" role="img" aria-label={item.name}>
+                    {icon}
+                  </span>
+                </div>
+                <p className="text-foreground/60 text-xs uppercase tracking-wide">{item.category.replace('_', ' ')}</p>
                 <h2 className="font-heading mt-1 text-lg">{item.name}</h2>
                 <p className="text-foreground/75 mt-2 flex-1 text-sm capitalize">{item.rarity} rarity</p>
                 <p className="text-foreground mt-3 font-mono text-sm">
@@ -167,14 +198,25 @@ export function StudentShopPage() {
           </p>
         ) : null}
         {inventory.data && inventory.data.length > 0 ? (
-          <ul className="space-y-2 text-sm">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from(ownedByShopItemId.entries()).map(([shopId, n]) => {
-              const label =
-                inventory.data?.find((r) => r.shop_item_id === shopId)?.name ?? `Item #${shopId}`
+              const item = inventory.data?.find((r) => r.shop_item_id === shopId)
+              const label = item?.name ?? `Item #${shopId}`
+              const category = item?.category ?? ''
+              const icon = getItemIcon(label, category)
               return (
-                <li key={shopId} className="text-foreground/85 flex justify-between gap-2">
-                  <span>{label}</span>
-                  <span className="font-mono">×{n}</span>
+                <li
+                  key={shopId}
+                  className="bg-background border-divider flex items-center gap-3 rounded-lg border p-3"
+                >
+                  <span className="text-3xl" role="img" aria-label={label}>
+                    {icon}
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-foreground font-medium">{label}</p>
+                    <p className="text-foreground/60 text-xs capitalize">{category.replace('_', ' ')}</p>
+                  </div>
+                  <span className="text-foreground/70 font-mono text-sm">×{n}</span>
                 </li>
               )
             })}
@@ -204,6 +246,11 @@ export function StudentShopPage() {
       >
         {confirmItem ? (
           <>
+            <div className="mb-4 flex justify-center">
+              <span className="text-6xl" role="img" aria-label={confirmItem.name}>
+                {getItemIcon(confirmItem.name, confirmItem.category)}
+              </span>
+            </div>
             <p className="text-foreground/85 text-sm">
               Buy <strong>{confirmItem.name}</strong> for{' '}
               <span className="font-mono">{confirmItem.price_coins}</span> coins?

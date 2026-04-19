@@ -16,7 +16,7 @@ export async function getShopItems(
 ): Promise<ShopItemResponse[]> {
   const q =
     category && category !== 'all' ? `?category=${encodeURIComponent(category)}` : ''
-  const res = await apiFetch(`/api/v1/shop/items${q}`, {
+  const res = await apiFetch(`/shop/items${q}`, {
     headers: authHeaders(token),
   })
   if (!res.ok) {
@@ -30,7 +30,7 @@ export async function postShopPurchase(
   token: string,
   itemId: number,
 ): Promise<PurchaseResponse> {
-  return apiFetchJson<PurchaseResponse>('/api/v1/shop/purchase', {
+  return apiFetchJson<PurchaseResponse>('/shop/purchase', {
     method: 'POST',
     headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ item_id: itemId }),
@@ -39,7 +39,7 @@ export async function postShopPurchase(
 
 /** GET /api/v1/me/inventory */
 export async function getMyInventory(token: string): Promise<InventoryItemResponse[]> {
-  const res = await apiFetch('/api/v1/me/inventory', {
+  const res = await apiFetch('/me/inventory', {
     headers: authHeaders(token),
   })
   if (!res.ok) {

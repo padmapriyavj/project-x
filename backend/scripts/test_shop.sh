@@ -98,7 +98,7 @@ echo ""
 
 # Step 7: Check inventory - should contain the purchased item
 echo "Step 7: Check inventory"
-INVENTORY_RESPONSE=$(curl -s -X GET "$BASE_URL/api/v1/me/inventory" -H "Authorization: Bearer $TOKEN")
+INVENTORY_RESPONSE=$(curl -s -X GET "$BASE_URL/me/inventory" -H "Authorization: Bearer $TOKEN")
 echo "$INVENTORY_RESPONSE" | python3 -c "import sys, json; items=json.load(sys.stdin); print(f'Inventory has {len(items)} items'); [print(f'  - {i[\"name\"]} (acquired: {i[\"acquired_at\"]})') for i in items]"
 ITEM_COUNT=$(echo "$INVENTORY_RESPONSE" | python3 -c "import sys, json; items=json.load(sys.stdin); print(len([i for i in items if i['name'] == 'Party Fox']))" 2>/dev/null)
 if [ "$ITEM_COUNT" == "1" ]; then
@@ -190,7 +190,7 @@ echo ""
 
 # Step 13: Final inventory check
 echo "Step 13: Final inventory check"
-INVENTORY_RESPONSE=$(curl -s -X GET "$BASE_URL/api/v1/me/inventory" -H "Authorization: Bearer $TOKEN")
+INVENTORY_RESPONSE=$(curl -s -X GET "$BASE_URL/me/inventory" -H "Authorization: Bearer $TOKEN")
 echo "$INVENTORY_RESPONSE" | python3 -c "
 import sys, json
 items = json.load(sys.stdin)
