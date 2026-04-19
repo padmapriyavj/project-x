@@ -18,6 +18,7 @@ def insert_quiz(
     lesson_id: UUID | None,
     status: str,
     duration_sec: int | None,
+    scheduled_at: str | None = None,
 ) -> UUID:
     sb = get_supabase()
     row = {
@@ -30,6 +31,8 @@ def insert_quiz(
     }
     if lesson_id is not None:
         row["lesson_id"] = str(lesson_id)
+    if scheduled_at is not None:
+        row["scheduled_at"] = scheduled_at
     res = sb.table("quizzes").insert(row).execute()
     if not res.data:
         raise RuntimeError("Failed to insert quiz")
@@ -92,6 +95,7 @@ def insert_quiz_attempt_stub(
     quiz_id: UUID,
     user_id: UUID,
     mode: str = "solo",
+    room_id: str | None = None,
 ) -> UUID:
     """Create an attempt row for scoring (minimal fields)."""
     sb = get_supabase()
@@ -103,6 +107,8 @@ def insert_quiz_attempt_stub(
         "mode": mode,
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
+    if room_id is not None:
+        row["room_id"] = room_id
     res = sb.table("quiz_attempts").insert(row).execute()
     if not res.data:
         raise RuntimeError("Failed to insert quiz_attempt")
@@ -172,3 +178,48 @@ def get_user_coins(user_id: UUID) -> int:
     sb = get_supabase()
     res = sb.table("users").select("coins").eq("id", str(user_id)).single().execute()
     return int(res.data["coins"])
+
+
+def list_upcoming_tempos(*, limit: int = 50) -> list[dict[str, Any]]:
+    """Published tempo quizzes with ``scheduled_at`` in the future (UTC)."""
+    from datetime import datetime, timezone
+
+    sb = get_supabase()
+    now = datetime.now(timezone.utc).isoformat()
+    res = (
+        sb.table("quizzes")
+        .select("id,course_id,type,status,scheduled_at,lesson_id,created_by,duration_sec,config")
+        .eq("type", "tempo")
+        .eq("status", "published")
+        .execute()
+    )
+    rows = [r for r in (res.data or []) if r.get("scheduled_at") and str(r["scheduled_at"]) > now]
+    rows.sort(key=lambda x: str(x.get("scheduled_at") or ""))
+    return rows[:limit]
+
+
+def list_due_tempos(*, limit: int = 100) -> list[dict[str, Any]]:
+    """Published tempo quizzes that should fire (``scheduled_at`` <= now)."""
+    from datetime import datetime, timezone
+
+    sb = get_supabase()
+    now = datetime.now(timezone.utc).isoformat()
+    res = (
+        sb.table("quizzes")
+        .select("id,course_id,type,status,scheduled_at,lesson_id,created_by,duration_sec,config")
+        .eq("type", "tempo")
+        .eq("status", "published")
+        .execute()
+    )
+    rows = [r for r in (res.data or []) if r.get("scheduled_at") and str(r["scheduled_at"]) <= now]
+    return rows[:limit]
+
+
+def update_quiz_scheduled_at(quiz_id: UUID, scheduled_at: str | None) -> None:
+    sb = get_supabase()
+    sb.table("quizzes").update({"scheduled_at": scheduled_at}).eq("id", str(quiz_id)).execute()
+
+
+def update_attempt_room_id(attempt_id: UUID, room_id: str) -> None:
+    sb = get_supabase()
+    sb.table("quiz_attempts").update({"room_id": room_id}).eq("id", str(attempt_id)).execute()

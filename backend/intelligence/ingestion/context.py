@@ -25,12 +25,13 @@ def extract_text_from_material_row(row: dict[str, Any]) -> str:
         v = row.get(key)
         if isinstance(v, str) and v.strip():
             return v.strip()
-    meta = row.get("metadata")
-    if isinstance(meta, dict):
-        for key in ("full_text", "text", "excerpt", "preview", "sample"):
-            v = meta.get(key)
-            if isinstance(v, str) and v.strip():
-                return v.strip()
+    for meta_key in ("metadata", "file_metadata"):
+        meta = row.get(meta_key)
+        if isinstance(meta, dict):
+            for key in ("full_text", "text", "excerpt", "preview", "sample"):
+                v = meta.get(key)
+                if isinstance(v, str) and v.strip():
+                    return v.strip()
     return ""
 
 

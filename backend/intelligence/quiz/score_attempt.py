@@ -84,7 +84,12 @@ def score_attempt(
     correct = sum(1 for ok, _ in graded if ok)
     score_pct = (Decimal(correct) / Decimal(total) * Decimal("100")).quantize(Decimal("0.01"))
     qtype = str(quiz.get("type") or "practice")
-    base_coins = compute_base_coins(quiz_type=qtype, quiz=quiz, graded=graded)
+    attempt_mode = str(attempt.get("mode") or "solo")
+    # Duel: per-question practice/tempo coins are replaced by win/loss settlement (engagement.duels).
+    if attempt_mode == "duel":
+        base_coins = 0
+    else:
+        base_coins = compute_base_coins(quiz_type=qtype, quiz=quiz, graded=graded)
 
     resolution = apply_betcha_resolution_to_attempt(
         user_id=user_id,

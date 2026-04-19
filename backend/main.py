@@ -18,11 +18,12 @@ from intelligence.ingestion.router import router as ingestion_router
 from intelligence.quiz.router import router as quiz_router
 from app_platform.lessons.router import router as lessons_router
 from app_platform.materials.router import router as materials_router
+from engagement.realtime.asgi import mount_socketio
 from engagement.router import router as engagement_router
 
 load_dotenv()
 
-app = FastAPI(title="Project X API")
+fastapi_app = FastAPI(title="Project X API")
 
 
 _repo_root = Path(__file__).resolve().parent.parent
@@ -37,7 +38,7 @@ if (_backend_dir / "platform").is_dir():
         "Auth code lives under backend/app_platform/auth/."
     )
 
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
@@ -45,17 +46,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
-app.include_router(courses_router)
-app.include_router(dashboard_router)
-app.include_router(shop_router)
-app.include_router(betcha_router)
-app.include_router(concepts_router)
-app.include_router(ingestion_router)
-app.include_router(quiz_router)
-app.include_router(lessons_router)
-app.include_router(materials_router)
-app.include_router(engagement_router)
+fastapi_app.include_router(auth_router)
+fastapi_app.include_router(courses_router)
+fastapi_app.include_router(dashboard_router)
+fastapi_app.include_router(betcha_router)
+fastapi_app.include_router(concepts_router)
+fastapi_app.include_router(ingestion_router)
+fastapi_app.include_router(quiz_router)
+fastapi_app.include_router(lessons_router)
+fastapi_app.include_router(materials_router)
+fastapi_app.include_router(engagement_router)
+fastapi_app.include_router(shop_router)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -64,12 +65,25 @@ if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-@app.get("/health")
+@fastapi_app.on_event("startup")
+async def _startup_tempo_scheduler() -> None:
+    from engagement.tempo.scheduler import start_tempo_scheduler
+
+    start_tempo_scheduler()
+
+
+@fastapi_app.on_event("shutdown")
+async def _shutdown_tempo_scheduler() -> None:
+    from engagement.tempo.scheduler import stop_tempo_scheduler
+
+    await stop_tempo_scheduler()
+
+@fastapi_app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/items")
+@fastapi_app.get("/items")
 def read_items():
     if supabase is None:
         return {"error": "Supabase is not configured"}
@@ -82,3 +96,7 @@ def read_items():
         return {"error": e.message, "details": e.details}
     except Exception as e:
         return {"error": "An unexpected error occurred", "details": str(e)}
+
+
+# Combined ASGI: Socket.IO on ``/socket.io/``; everything else → FastAPI.
+app = mount_socketio(fastapi_app)
