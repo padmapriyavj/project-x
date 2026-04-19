@@ -2,10 +2,9 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from postgrest.exceptions import APIError
 
-from database import get_db
+from database import get_supabase
 from models.user import User
 
 from .dependencies import get_current_user
@@ -14,41 +13,76 @@ from .security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
+_USER_PUBLIC_COLUMNS = (
+    "id,email,role,display_name,avatar_config,coins,current_streak,longest_streak,"
+    "streak_freezes,created_at"
+)
+
 
 @router.post("/signup", response_model=AuthResponse)
-def signup(body: SignupRequest, db: Session = Depends(get_db)) -> AuthResponse:
-    existing = db.execute(select(User).where(User.email == str(body.email))).scalar_one_or_none()
-    if existing is not None:
+def signup(body: SignupRequest) -> AuthResponse:
+    sb = get_supabase()
+    email = str(body.email)
+    existing = sb.table("users").select("id").eq("email", email).limit(1).execute()
+    if existing.data:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
     avatar_config = {"seed": str(uuid.uuid4()), "style": "adventurer"}
-    user = User(
-        email=str(body.email),
-        password_hash=hash_password(body.password),
-        role=body.role,
-        display_name=body.display_name,
-        avatar_config=avatar_config,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        inserted = (
+            sb.table("users")
+            .insert(
+                {
+                    "email": email,
+                    "password_hash": hash_password(body.password),
+                    "role": body.role,
+                    "display_name": body.display_name,
+                    "avatar_config": avatar_config,
+                }
+            )
+            .select(_USER_PUBLIC_COLUMNS)
+            .single()
+            .execute()
+        )
+    except APIError as e:
+        err = str(e).lower()
+        if "duplicate" in err or "unique" in err or "23505" in err:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+            ) from e
+        raise
 
-    token = create_access_token(user.id, user.role)
+    row = inserted.data
+    token = create_access_token(row["id"], row["role"])
     return AuthResponse(
-        user=UserResponse.model_validate(user),
+        user=UserResponse.model_validate(row),
         access_token=token,
     )
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
-    user = db.execute(select(User).where(User.email == str(body.email))).scalar_one_or_none()
-    if user is None or not verify_password(body.password, user.password_hash):
+def login(body: LoginRequest) -> AuthResponse:
+    sb = get_supabase()
+    email = str(body.email)
+    try:
+        res = (
+            sb.table("users")
+            .select(f"{_USER_PUBLIC_COLUMNS},password_hash")
+            .eq("email", email)
+            .single()
+            .execute()
+        )
+    except APIError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    token = create_access_token(user.id, user.role)
+    row = res.data
+    if not verify_password(body.password, row["password_hash"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    public = {k: v for k, v in row.items() if k != "password_hash"}
+    token = create_access_token(public["id"], public["role"])
     return AuthResponse(
-        user=UserResponse.model_validate(user),
+        user=UserResponse.model_validate(public),
         access_token=token,
     )
 

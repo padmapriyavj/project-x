@@ -1,31 +1,20 @@
 import os
+from functools import lru_cache
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from supabase import Client, create_client
 
 load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL is not set. Copy the Postgres connection string from Supabase "
-        "(Project Settings → Database → URI) and use the SQLAlchemy form "
-        "postgresql+psycopg://.... SUPABASE_URL and SUPABASE_KEY are only for the "
-        "Supabase client API, not for direct database connections."
-    )
-
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 
 class Base(DeclarativeBase):
     pass
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@lru_cache
+def get_supabase() -> Client:
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    if not url or not key:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set")
+    return create_client(url, key)

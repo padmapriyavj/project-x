@@ -1,18 +1,7 @@
 """Supabase client for the Betcha module (SUPABASE_URL / SUPABASE_KEY from env)."""
 
-import os
-from functools import lru_cache
+from supabase import Client
 
-from dotenv import load_dotenv
-from supabase import Client, create_client
+from database import get_supabase
 
-load_dotenv()
-
-
-@lru_cache
-def get_supabase() -> Client:
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_KEY")
-    if not url or not key:
-        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set")
-    return create_client(url, key)
+__all__ = ["Client", "get_supabase"]
