@@ -9,6 +9,7 @@ from models.user import User
 
 from .schemas import (
     CourseJoinInfo,
+    CourseLeaderboardEntry,
     CourseResponse,
     CreateCourseRequest,
     EnrollRequest,
@@ -206,3 +207,77 @@ def list_course_students(
         return []
     res = sb.table("users").select(_STUDENT_SELECT).in_("id", user_ids).execute()
     return [StudentResponse.model_validate(row) for row in (res.data or [])]
+
+
+def _get_quiz_ids_for_course(course_id: int) -> list[str]:
+    """Get all quiz IDs associated with a course."""
+    sb = get_supabase()
+    res = sb.table("quizzes").select("id").eq("course_id", course_id).execute()
+    return [str(row["id"]) for row in (res.data or [])]
+
+
+def _get_course_coins_for_user(user_id: int, quiz_ids: list[str]) -> dict[str, int]:
+    """Get total coins and tests taken for a user in a specific course."""
+    if not quiz_ids:
+        return {"course_coins": 0, "tests_taken": 0}
+    sb = get_supabase()
+    res = (
+        sb.table("quiz_attempts")
+        .select("id,coins_earned")
+        .eq("user_id", int(user_id))
+        .in_("quiz_id", quiz_ids)
+        .not_.is_("completed_at", "null")
+        .execute()
+    )
+    rows = res.data or []
+    tests_taken = len(rows)
+    course_coins = sum(int(r.get("coins_earned") or 0) for r in rows)
+    return {"course_coins": course_coins, "tests_taken": tests_taken}
+
+
+@router.get("/{course_id}/leaderboard", response_model=list[CourseLeaderboardEntry])
+def get_course_leaderboard(
+    course_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[CourseLeaderboardEntry]:
+    """Get course leaderboard ranked by coins earned in this course."""
+    course = _course_row_or_404(course_id)
+    is_professor = course["professor_id"] == current_user.id
+    is_enrolled = _user_enrolled(current_user.id, course_id)
+
+    if not is_professor and not is_enrolled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the course owner or enrolled students can view the leaderboard",
+        )
+
+    sb = get_supabase()
+    enr = sb.table("enrollments").select("user_id").eq("course_id", course_id).execute()
+    user_ids = [row["user_id"] for row in (enr.data or [])]
+    if not user_ids:
+        return []
+
+    users_res = sb.table("users").select(_STUDENT_SELECT).in_("id", user_ids).execute()
+    users = {row["id"]: row for row in (users_res.data or [])}
+
+    quiz_ids = _get_quiz_ids_for_course(course_id)
+
+    entries = []
+    for user_id in user_ids:
+        user = users.get(user_id)
+        if not user:
+            continue
+        stats = _get_course_coins_for_user(user_id, quiz_ids)
+        entries.append(
+            CourseLeaderboardEntry(
+                id=user["id"],
+                email=user["email"],
+                display_name=user["display_name"],
+                avatar_config=user.get("avatar_config") or {},
+                course_coins=stats["course_coins"],
+                tests_taken=stats["tests_taken"],
+            )
+        )
+
+    entries.sort(key=lambda e: e.course_coins, reverse=True)
+    return entries

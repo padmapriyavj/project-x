@@ -21,45 +21,62 @@ function ProfessorCourseCardReal({
   classAvg?: number | null
 }) {
   return (
-    <Card padding="none" className="text-left">
-      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <Link
-            to={`/professor/course/${course.id}`}
-            className="font-heading text-foreground hover:text-primary inline-flex min-h-11 items-center text-lg transition-colors"
-          >
-            {course.name}
-          </Link>
-          {course.description ? (
-            <p className="text-foreground/70 mt-1 text-sm">{course.description}</p>
-          ) : null}
-          <p className="text-foreground/60 mt-2 text-xs">
-            Created: {new Date(course.created_at).toLocaleDateString()}
-            {enrollmentCount != null ? (
-              <>
-                {' '}
-                · <span className="font-medium">{enrollmentCount}</span> enrolled
-              </>
+    <Card padding="none" className="text-left overflow-hidden">
+      <div className="p-4 sm:p-5">
+        {/* Header */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <Link
+              to={`/professor/course/${course.id}`}
+              className="font-heading text-foreground hover:text-primary text-lg transition-colors sm:text-xl"
+            >
+              {course.name}
+            </Link>
+            {course.description ? (
+              <p className="text-foreground/70 mt-1 text-sm">{course.description}</p>
             ) : null}
-            {classAvg != null ? (
-              <>
-                {' '}
-                · Class avg: <span className="font-mono">{Number(classAvg).toFixed(1)}%</span>
-              </>
-            ) : null}
-          </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Link
+              to={`/professor/course/${course.id}`}
+              className="bg-secondary text-surface hover:opacity-95 inline-flex min-h-10 items-center justify-center rounded-[var(--radius-sm)] px-4 text-center text-sm font-semibold transition-opacity"
+            >
+              Manage
+            </Link>
+          </div>
         </div>
-        <div className="w-full shrink-0 sm:w-auto sm:max-w-[min(100%,20rem)]">
-          <JoinCodeDisplay courseId={course.id} code={course.join_code} />
+
+        {/* Stats row */}
+        <div className="border-divider/40 mb-4 grid grid-cols-3 gap-3 border-t pt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">👥</span>
+            <div>
+              <p className="text-foreground font-mono text-sm font-semibold">{enrollmentCount ?? 0}</p>
+              <p className="text-foreground/60 text-xs">Students</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📊</span>
+            <div>
+              <p className="text-foreground font-mono text-sm font-semibold">
+                {classAvg != null ? `${Number(classAvg).toFixed(0)}%` : '—'}
+              </p>
+              <p className="text-foreground/60 text-xs">Class avg</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📅</span>
+            <div>
+              <p className="text-foreground text-sm font-medium">
+                {new Date(course.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </p>
+              <p className="text-foreground/60 text-xs">Created</p>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="border-divider/40 flex items-center gap-4 border-t px-4 py-3">
-        <Link
-          to={`/professor/course/${course.id}`}
-          className="text-primary inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
-        >
-          View details
-        </Link>
+
+        {/* Join code section */}
+        <JoinCodeDisplay courseId={course.id} code={course.join_code} />
       </div>
     </Card>
   )

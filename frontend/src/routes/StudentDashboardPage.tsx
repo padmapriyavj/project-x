@@ -73,7 +73,16 @@ export function StudentDashboardPage() {
       {dashboard.isSuccess && dashboard.data.courses.length > 0 ? (
         <div className="space-y-4">
           {dashboard.data.courses.map((c) => (
-            <StudentCourseCard key={c.id} course={{ id: c.id, name: c.name }} />
+            <StudentCourseCard
+              key={c.id}
+              course={{ id: c.id, name: c.name }}
+              dashboardData={{
+                tests_taken: c.tests_taken,
+                coins_earned: c.coins_earned,
+                top_weak_concept: c.top_weak_concept,
+                upcoming_events: c.upcoming_events,
+              }}
+            />
           ))}
         </div>
       ) : null}

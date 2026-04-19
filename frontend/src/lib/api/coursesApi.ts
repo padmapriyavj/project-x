@@ -79,3 +79,19 @@ export async function getCourseStudents(
 ): Promise<Student[]> {
   return authedFetch<Student[]>(`/courses/${courseId}/students`, token)
 }
+
+export type LeaderboardEntry = {
+  id: number
+  email: string
+  display_name: string
+  avatar_config: Record<string, unknown>
+  course_coins: number
+  tests_taken: number
+}
+
+export async function getCourseLeaderboard(
+  token: string,
+  courseId: number,
+): Promise<LeaderboardEntry[]> {
+  return authedFetch<LeaderboardEntry[]>(`/courses/${courseId}/leaderboard`, token)
+}

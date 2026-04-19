@@ -5,6 +5,7 @@ import {
   enrollInCourse,
   getCourse,
   getCourseJoinInfo,
+  getCourseLeaderboard,
   getCourses,
   getCourseStudents,
   updateCourse,
@@ -60,6 +61,19 @@ export function useCourseStudentsQuery(courseId: number) {
     queryFn: () => {
       if (!token) throw new Error('Not authenticated')
       return getCourseStudents(token, courseId)
+    },
+    enabled: !!token && courseId > 0,
+  })
+}
+
+export function useCourseLeaderboardQuery(courseId: number) {
+  const token = useAuthStore((s) => s.token)
+  
+  return useQuery({
+    queryKey: [...queryKeys.courseStudents(courseId), 'leaderboard'],
+    queryFn: () => {
+      if (!token) throw new Error('Not authenticated')
+      return getCourseLeaderboard(token, courseId)
     },
     enabled: !!token && courseId > 0,
   })

@@ -4,7 +4,7 @@ import { AvatarImg } from '@/components/ui/AvatarImg'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
-import { useCourseQuery, useCourseStudentsQuery } from '@/lib/queries/courseQueries'
+import { useCourseQuery, useCourseLeaderboardQuery } from '@/lib/queries/courseQueries'
 import { useAuthStore } from '@/stores/authStore'
 
 export function LeaderboardPage() {
@@ -12,11 +12,7 @@ export function LeaderboardPage() {
   const id = parseInt(courseId ?? '', 10)
   const selfId = useAuthStore((s) => s.user?.id)
   const course = useCourseQuery(id)
-  const students = useCourseStudentsQuery(id)
-
-  const ranked = students.data
-    ? [...students.data].sort((a, b) => b.coins - a.coins)
-    : []
+  const leaderboard = useCourseLeaderboardQuery(id)
 
   function rowInitials(displayName: string, email: string) {
     const n = displayName.trim()
@@ -28,7 +24,7 @@ export function LeaderboardPage() {
     return email.slice(0, 2).toUpperCase()
   }
 
-  if (course.isLoading || students.isLoading) return <Spinner label="Loading…" />
+  if (course.isLoading || leaderboard.isLoading) return <Spinner label="Loading…" />
 
   return (
     <div className="text-left">
@@ -43,14 +39,14 @@ export function LeaderboardPage() {
 
       <PageHeader
         title="Leaderboard"
-        description={course.data ? `Course: ${course.data.name} — ranked by coins.` : 'Course leaderboard'}
+        description={course.data ? `${course.data.name} — ranked by coins earned in this course.` : 'Course leaderboard'}
       />
 
-      {students.isError ? (
-        <p className="text-danger text-sm">Could not load roster.</p>
+      {leaderboard.isError ? (
+        <p className="text-danger text-sm">Could not load leaderboard.</p>
       ) : (
         <ol className="space-y-2">
-          {ranked.map((s, idx) => {
+          {(leaderboard.data ?? []).map((s, idx) => {
             const rank = idx + 1
             const rankLabel = rank <= 3 ? `${rank}${rank === 1 ? 'st' : rank === 2 ? 'nd' : 'rd'}` : String(rank)
             const isSelf = s.id === selfId
@@ -61,7 +57,9 @@ export function LeaderboardPage() {
                   className={`flex items-center justify-between gap-3 ${isSelf ? 'ring-secondary ring-2' : ''}`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-foreground/60 w-10 font-mono text-sm">{rankLabel}</span>
+                    <span className={`w-10 font-mono text-sm font-bold ${rank === 1 ? 'text-gold' : rank === 2 ? 'text-foreground/70' : rank === 3 ? 'text-amber-700' : 'text-foreground/50'}`}>
+                      {rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rankLabel}
+                    </span>
                     <AvatarImg
                       user={{ id: s.id, email: s.email }}
                       fallbackInitials={rowInitials(s.display_name, s.email)}
@@ -69,14 +67,22 @@ export function LeaderboardPage() {
                     />
                     <div className="min-w-0">
                       <p className="font-medium">{s.display_name}</p>
-                      <p className="text-foreground/60 text-xs">{s.email}</p>
+                      <p className="text-foreground/60 text-xs">{s.tests_taken} tests taken</p>
                     </div>
                   </div>
-                  <span className="font-mono text-sm font-semibold tabular-nums">{s.coins} coins</span>
+                  <div className="text-right">
+                    <span className="text-gold font-mono text-sm font-bold tabular-nums">{s.course_coins}</span>
+                    <p className="text-foreground/60 text-xs">coins</p>
+                  </div>
                 </Card>
               </li>
             )
           })}
+          {(leaderboard.data ?? []).length === 0 ? (
+            <Card padding="lg" className="text-center">
+              <p className="text-foreground/70 text-sm">No one has earned coins in this course yet. Be the first!</p>
+            </Card>
+          ) : null}
         </ol>
       )}
     </div>

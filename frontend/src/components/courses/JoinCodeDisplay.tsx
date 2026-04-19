@@ -52,26 +52,22 @@ export function JoinCodeDisplay({ courseId, code }: JoinCodeDisplayProps) {
   }
 
   return (
-    <div className="border-divider/60 bg-background flex w-full max-w-full flex-col gap-3 rounded-[var(--radius-md)] border p-4 sm:max-w-md">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="bg-primary/5 border-primary/20 flex w-full max-w-full flex-col gap-3 rounded-[var(--radius-md)] border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-foreground/60 text-xs font-medium uppercase tracking-wide">Join code</p>
-          <p className="text-foreground font-mono text-lg font-bold tracking-widest break-all">{code}</p>
+          <p className="text-foreground/60 mb-1 text-xs font-medium uppercase tracking-wide">Join Code</p>
+          <p className="text-primary font-mono text-2xl font-bold tracking-widest">{code}</p>
         </div>
-        <Button type="button" variant="ghost" size="sm" onClick={() => void copyCode()} className="shrink-0">
-          {copiedCode ? 'Copied!' : 'Copy code'}
+        <Button type="button" variant="secondary" size="sm" onClick={() => void copyCode()} className="shrink-0">
+          {copiedCode ? '✓ Copied!' : 'Copy'}
         </Button>
       </div>
-      <div className="border-divider/40 border-t pt-3">
-        <p className="text-foreground/60 mb-1 text-xs font-medium uppercase tracking-wide">
-          Student invite link
-        </p>
-        <p className="text-foreground/85 mb-2 break-all font-mono text-xs">{joinUrl}</p>
-        <p className="text-foreground/60 mb-3 text-xs">
-          Students open this link, then enter the join code above — no course ID to type.
-        </p>
-        <Button type="button" size="sm" onClick={() => void copyLink()} className="w-full sm:w-auto">
-          {copiedLink ? 'Link copied!' : 'Copy invite link'}
+      <div className="border-primary/20 flex items-center justify-between gap-3 border-t pt-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-foreground/70 text-xs">Share link with students</p>
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={() => void copyLink()}>
+          {copiedLink ? '✓ Link copied!' : '🔗 Copy link'}
         </Button>
       </div>
     </div>

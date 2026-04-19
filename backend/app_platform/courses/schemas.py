@@ -48,3 +48,14 @@ class StudentResponse(BaseModel):
     avatar_config: dict[str, Any]
     coins: int
     current_streak: int
+
+
+class CourseLeaderboardEntry(BaseModel):
+    """Student entry for course-specific leaderboard."""
+
+    id: int
+    email: str
+    display_name: str
+    avatar_config: dict[str, Any]
+    course_coins: int
+    tests_taken: int
