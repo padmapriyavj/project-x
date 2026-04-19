@@ -28,6 +28,12 @@ interface ImportMetaEnv {
   readonly VITE_VOICE_CACHE_TEMPO_PING_URL?: string
   readonly VITE_VOICE_CACHE_END_QUIZ_URL?: string
   readonly VITE_VOICE_CACHE_DUEL_INTRO_URL?: string
+  /** Optional static clip; ignores dynamic question text when set (demo only). */
+  readonly VITE_VOICE_CACHE_QUIZ_QUESTION_READ_URL?: string
+  readonly VITE_VOICE_CACHE_WRONG_ANSWER_REFRAME_URL?: string
+  readonly VITE_VOICE_CACHE_DUEL_QUESTION_READ_URL?: string
+  readonly VITE_VOICE_CACHE_DUEL_PEER_COMMENTARY_URL?: string
+  readonly VITE_VOICE_CACHE_DUEL_WINNER_CALLOUT_URL?: string
 }
 
 interface ImportMeta {

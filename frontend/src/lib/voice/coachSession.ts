@@ -1,11 +1,13 @@
 /**
  * Finn Coach — ElevenLabs **Conversational AI** (PRD §7.8).
  *
- * Full agent + tool-calling session belongs here (Hour 14–20). Wire WebSocket or
- * official browser SDK when keys/agents are ready.
+ * Uses `@elevenlabs/client` in the browser. For production, prefer a server-issued
+ * signed URL or conversation token instead of exposing a long-lived API key.
  *
- * @see https://elevenlabs.io/docs/conversational-ai
+ * @see https://elevenlabs.io/docs/conversational-ai/libraries/java-script
  */
+
+import type { Callbacks, VoiceConversation } from '@elevenlabs/client'
 
 export type CoachSessionStatus = 'unconfigured' | 'ready'
 
@@ -20,15 +22,47 @@ export function getCoachSessionStatus(): CoachSessionStatus {
 
 export function getCoachSetupHint(): string {
   return getCoachAgentId()
-    ? 'Agent id is set. Connect the Conversational AI client (WebSocket / SDK) to start sessions.'
-    : 'Set VITE_ELEVENLABS_AGENT_ID to your ElevenLabs Conversational AI agent id, then integrate the client per ElevenLabs docs.'
+    ? 'Agent id is set. Start a session below (microphone permission required). For production, proxy auth via your backend.'
+    : 'Set VITE_ELEVENLABS_AGENT_ID to your ElevenLabs Conversational AI agent id.'
 }
 
+export type CoachSessionCallbacks = Pick<
+  Callbacks,
+  'onConnect' | 'onDisconnect' | 'onError' | 'onStatusChange' | 'onModeChange'
+>
+
 /**
- * Placeholder until Conversational AI is integrated. Throws so callers can catch and show UI.
+ * Starts a voice conversation with the configured agent.
+ * Pass optional `authorization` via env `VITE_ELEVENLABS_API_KEY` (dev / hackathon only).
  */
-export async function startCoachConversationSession(): Promise<never> {
-  throw new Error(
-    'Coach Conversational AI session not wired yet (PRD §7.8). ' + getCoachSetupHint(),
-  )
+export async function startCoachConversationSession(
+  callbacks: CoachSessionCallbacks,
+): Promise<VoiceConversation> {
+  const agentId = getCoachAgentId()
+  if (!agentId) {
+    throw new Error(`Coach is not configured. ${getCoachSetupHint()}`)
+  }
+
+  const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY?.trim()
+
+  const { Conversation } = await import('@elevenlabs/client')
+
+  const session = await Conversation.startSession({
+    agentId,
+    ...(apiKey ? { authorization: apiKey } : {}),
+    ...callbacks,
+  })
+
+  return session as VoiceConversation
+}
+
+export async function endCoachConversationSession(
+  session: VoiceConversation | null,
+): Promise<void> {
+  if (!session) return
+  try {
+    await session.endSession()
+  } catch {
+    // ignore double-end
+  }
 }

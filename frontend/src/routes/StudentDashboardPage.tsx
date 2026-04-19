@@ -13,6 +13,7 @@ import { FinnMascot } from '@/components/finn/FinnMascot'
 import { queryKeys } from '@/lib/queryKeys'
 import { fetchStudentDashboardMock } from '@/lib/queries/dashboardQueries'
 import { playFinnGreeting } from '@/lib/voice/playFinnGreeting'
+import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
 
 const moods: FinnMood[] = [
   'neutral',
@@ -31,6 +32,8 @@ export function StudentDashboardPage() {
     queryKey: queryKeys.studentDashboard,
     queryFn: fetchStudentDashboardMock,
   })
+
+  const coins = useStudentEconomyStore((s) => s.coins)
 
   const greeting = useMutation({
     mutationFn: playFinnGreeting,
@@ -61,6 +64,14 @@ export function StudentDashboardPage() {
               className="text-primary font-medium underline-offset-2 hover:underline"
             >
               Duel voice preview
+            </Link>
+            {' · '}
+            <Link to="/student/shop" className="text-primary font-medium underline-offset-2 hover:underline">
+              Shop
+            </Link>
+            {' · '}
+            <Link to="/student/space" className="text-primary font-medium underline-offset-2 hover:underline">
+              Space
             </Link>
           </p>
         </div>
@@ -100,7 +111,7 @@ export function StudentDashboardPage() {
         <>
           <div className="mb-8 flex flex-wrap gap-4">
             <StreakFlame days={dashboard.data.streakDays} />
-            <CoinCounter value={dashboard.data.coins} />
+            <CoinCounter value={coins} />
             <StudentCoachCta />
           </div>
           <h2 className="font-heading text-foreground mb-3 text-lg">Your courses</h2>

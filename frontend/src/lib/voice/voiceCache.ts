@@ -17,8 +17,19 @@ export function getVoiceCacheUrl(trigger: FinnVoiceTrigger): string | undefined 
       return env.VITE_VOICE_CACHE_TEMPO_PING_URL
     case 'end_quiz_summary':
       return env.VITE_VOICE_CACHE_END_QUIZ_URL
+    case 'during_quiz_question_read':
+      /** Static demo clip only; dynamic question text is ignored when this URL is set. */
+      return env.VITE_VOICE_CACHE_QUIZ_QUESTION_READ_URL
+    case 'wrong_answer_reframe':
+      return env.VITE_VOICE_CACHE_WRONG_ANSWER_REFRAME_URL
     case 'duel_intro':
       return env.VITE_VOICE_CACHE_DUEL_INTRO_URL
+    case 'duel_question_read':
+      return env.VITE_VOICE_CACHE_DUEL_QUESTION_READ_URL
+    case 'duel_peer_commentary':
+      return env.VITE_VOICE_CACHE_DUEL_PEER_COMMENTARY_URL
+    case 'duel_winner_callout':
+      return env.VITE_VOICE_CACHE_DUEL_WINNER_CALLOUT_URL
     default:
       return undefined
   }

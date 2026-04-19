@@ -13,6 +13,8 @@ import { QuizResultsPage } from '@/routes/QuizResultsPage'
 import { QuizRunnerPage } from '@/routes/QuizRunnerPage'
 import { SignupPage } from '@/routes/SignupPage'
 import { StudentDashboardPage } from '@/routes/StudentDashboardPage'
+import { StudentShopPage } from '@/routes/StudentShopPage'
+import { StudentSpacePage } from '@/routes/StudentSpacePage'
 import { TempoScreenPage } from '@/routes/TempoScreenPage'
 
 export function AppRoutes() {
@@ -24,6 +26,8 @@ export function AppRoutes() {
         <Route path="signup" element={<SignupPage />} />
         <Route element={<RequireAuth allowedRoles={['student']} />}>
           <Route path="student" element={<StudentDashboardPage />} />
+          <Route path="student/shop" element={<StudentShopPage />} />
+          <Route path="student/space" element={<StudentSpacePage />} />
           <Route path="student/practice" element={<PracticeHubPage />} />
           <Route
             path="student/practice/lobby/:lessonId"

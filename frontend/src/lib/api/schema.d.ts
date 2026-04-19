@@ -84,6 +84,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/shop/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getShopCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/space/layouts/{layout_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSpaceLayout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -126,6 +158,25 @@ export interface components {
             /** @enum {string} */
             mode?: "solo" | "duel" | "tempo";
             current_question_index?: number;
+        };
+        ShopCatalogItem: {
+            id: string;
+            name: string;
+            description: string;
+            price: number;
+            /** @enum {string} */
+            category: "decor" | "desk" | "plant";
+        };
+        SpaceSlot: {
+            id: string;
+            label: string;
+            /** @enum {string} */
+            region: "wall" | "floor" | "desk";
+        };
+        SpaceLayout: {
+            layout_id: string;
+            title: string;
+            slots: components["schemas"]["SpaceSlot"][];
         };
     };
     responses: never;
@@ -253,6 +304,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuizRoomPublic"];
+                };
+            };
+        };
+    };
+    getShopCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Purchasable items for the student shop */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopCatalogItem"][];
+                };
+            };
+        };
+    };
+    getSpaceLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                layout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Slot layout for the student space */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpaceLayout"];
                 };
             };
         };

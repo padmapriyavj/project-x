@@ -7,6 +7,7 @@ import type { FinnMood } from '@/components/finn/FinnMascot'
 import { FinnMascot } from '@/components/finn/FinnMascot'
 import { CountdownTimer } from '@/components/quiz/CountdownTimer'
 import { QuestionCard } from '@/components/quiz/QuestionCard'
+import { getApiBaseUrl } from '@/lib/env'
 import {
   mockQuizQuestions,
   type QuizRunLocationState,
@@ -20,6 +21,11 @@ import {
 } from '@/lib/voice/quizVoice'
 
 const QUESTION_SECONDS = 45
+
+function isDemoQuizRoomId(id: string | undefined) {
+  if (!id) return false
+  return id.startsWith('mock-') || id.startsWith('tempo-')
+}
 
 export function QuizRunnerPage() {
   const { roomId } = useParams<{ roomId: string }>()
@@ -146,13 +152,23 @@ export function QuizRunnerPage() {
 
   if (!run) {
     return (
-      <section className="text-left">
-        <p className="text-foreground/80 mb-4 text-sm">
-          Start a quiz from the practice lobby so Betcha and mode are set.
+      <section className="text-left" aria-label="Quiz">
+        <h1 className="text-foreground mb-2 text-xl">No quiz session</h1>
+        <p className="text-foreground/80 mb-4 max-w-md text-sm">
+          This page needs navigation state from the practice lobby or Tempo flow (Betcha and mode).
+          Opening this URL directly will not start a quiz.
         </p>
-        <Link to="/student/practice" className="text-primary text-sm font-medium underline">
-          Go to practice hub
-        </Link>
+        <div className="flex flex-wrap gap-4 text-sm font-medium">
+          <Link
+            to="/student/practice"
+            className="text-primary underline-offset-2 hover:underline"
+          >
+            Practice hub
+          </Link>
+          <Link to="/student" className="text-primary underline-offset-2 hover:underline">
+            Student dashboard
+          </Link>
+        </div>
       </section>
     )
   }
@@ -162,9 +178,14 @@ export function QuizRunnerPage() {
     return null
   }
 
+  const apiOrWsConfigured =
+    Boolean(import.meta.env.VITE_WS_BASE_URL?.trim()) || Boolean(getApiBaseUrl())
+  const showSocketDemoHint = isDemoQuizRoomId(roomId)
+  const showSocketConfigHint = !showSocketDemoHint && !socket && !apiOrWsConfigured
+
   return (
-    <section className="text-left">
-      <nav className="text-foreground/70 mb-4 text-sm">
+    <section className="text-left" aria-label="Quiz">
+      <nav className="text-foreground/70 mb-4 text-sm" aria-label="Breadcrumb">
         <Link to="/student/practice" className="text-primary hover:underline">
           Practice
         </Link>
@@ -206,16 +227,31 @@ export function QuizRunnerPage() {
         selectedIndex={selected}
         onSelect={setSelected}
         disabled={reading}
+        focusResetKey={qIndex}
       />
 
       <button
         type="button"
-        className="bg-secondary text-surface mt-6 rounded-[var(--radius-sm)] px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+        className="bg-secondary text-surface mt-6 rounded-[var(--radius-sm)] px-5 py-2.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] disabled:opacity-50"
         disabled={selected === null || reading}
         onClick={() => void submitOrTimeoutFixed()}
       >
         Lock answer
       </button>
+
+      {showSocketDemoHint ? (
+        <p className="text-foreground/60 mt-4 max-w-xl text-xs">
+          Live quiz-room Socket.IO is skipped for <span className="font-mono">mock-*</span> and{' '}
+          <span className="font-mono">tempo-*</span> room ids so local demos stay quiet.
+        </p>
+      ) : null}
+      {showSocketConfigHint ? (
+        <p className="text-foreground/60 mt-4 max-w-xl text-xs">
+          Set <span className="font-mono">VITE_API_BASE_URL</span> or{' '}
+          <span className="font-mono">VITE_WS_BASE_URL</span> to enable the quiz-room client for this
+          room.
+        </p>
+      ) : null}
     </section>
   )
 }
