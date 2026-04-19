@@ -1,7 +1,6 @@
 from io import BytesIO
 from typing import Annotated, Optional
-
-import fitz
+import pymupdf as fitz  # PyPI package PyMuPDF — do not install the unrelated `fitz` package
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from pptx import Presentation
 from postgrest.exceptions import APIError

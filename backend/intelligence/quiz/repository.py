@@ -151,6 +151,18 @@ def get_attempt_row(attempt_id: UUID) -> dict[str, Any]:
     return dict(res.data)
 
 
+def attempt_has_answers(attempt_id: UUID) -> bool:
+    sb = get_supabase()
+    res = (
+        sb.table("answers")
+        .select("id")
+        .eq("attempt_id", str(attempt_id))
+        .limit(1)
+        .execute()
+    )
+    return bool(res.data and len(res.data) > 0)
+
+
 def update_user_coins(user_id: UUID, new_balance: int) -> None:
     sb = get_supabase()
     sb.table("users").update({"coins": new_balance}).eq("id", str(user_id)).execute()
