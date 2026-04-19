@@ -2,6 +2,21 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from supabase import Client, create_client
+from backend.deductible.platform.auth.router import router as auth_router
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from postgrest.exceptions import APIError
+from supabase import Client, create_client
+from intelligence.betcha.router import router as betcha_router
+
+load_dotenv()
+
+app = FastAPI(title="Project X API")
+
 
 _repo_root = Path(__file__).resolve().parent.parent
 if str(_repo_root) not in sys.path:
@@ -15,18 +30,6 @@ if (_backend_dir / "platform").is_dir():
         "Auth code lives under backend/deductible/platform/auth/."
     )
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from supabase import Client, create_client
-
-from backend.deductible.platform.auth.router import router as auth_router
-
-app = FastAPI(title="Project X API")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
+app.include_router(auth_router, betcha_router)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -47,7 +50,6 @@ if SUPABASE_URL and SUPABASE_KEY:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
 
 @app.get("/items")
 def read_items():
