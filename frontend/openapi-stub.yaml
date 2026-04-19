@@ -1,0 +1,9 @@
+openapi: 3.0.3
+info:
+  title: Deductible API
+  version: 0.0.1
+  description: >
+    Stub spec until FastAPI serves /openapi.json.
+    Regenerate with npm run generate:api (optionally point at VITE_OPENAPI_URL).
+paths: {}
+components: {}
