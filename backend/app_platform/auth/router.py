@@ -29,21 +29,15 @@ def signup(body: SignupRequest) -> AuthResponse:
 
     avatar_config = {"seed": str(uuid.uuid4()), "style": "adventurer"}
     try:
-        inserted = (
-            sb.table("users")
-            .insert(
-                {
-                    "email": email,
-                    "password_hash": hash_password(body.password),
-                    "role": body.role,
-                    "display_name": body.display_name,
-                    "avatar_config": avatar_config,
-                }
-            )
-            .select(_USER_PUBLIC_COLUMNS)
-            .single()
-            .execute()
-        )
+        inserted = sb.table("users").insert(
+            {
+                "email": email,
+                "password_hash": hash_password(body.password),
+                "role": body.role,
+                "display_name": body.display_name,
+                "avatar_config": avatar_config,
+            }
+        ).execute()
     except APIError as e:
         err = str(e).lower()
         if "duplicate" in err or "unique" in err or "23505" in err:
@@ -52,10 +46,16 @@ def signup(body: SignupRequest) -> AuthResponse:
             ) from e
         raise
 
-    row = inserted.data
-    token = create_access_token(row["id"], row["role"])
+    if not inserted.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User creation failed",
+        )
+    row = inserted.data[0]
+    public = {k: v for k, v in row.items() if k != "password_hash"}
+    token = create_access_token(public["id"], public["role"])
     return AuthResponse(
-        user=UserResponse.model_validate(row),
+        user=UserResponse.model_validate(public),
         access_token=token,
     )
 

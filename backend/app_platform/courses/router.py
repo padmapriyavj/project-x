@@ -69,22 +69,16 @@ def create_course(
     for _ in range(20):
         join_code = _generate_join_code()
         try:
-            ins = (
-                sb.table("courses")
-                .insert(
-                    {
-                        "professor_id": current_user.id,
-                        "name": body.name,
-                        "description": description,
-                        "schedule": body.schedule,
-                        "join_code": join_code,
-                    }
-                )
-                .select(_COURSE_SELECT)
-                .single()
-                .execute()
-            )
-            return CourseResponse.model_validate(ins.data)
+            ins = sb.table("courses").insert(
+                {
+                    "professor_id": current_user.id,
+                    "name": body.name,
+                    "description": description,
+                    "schedule": body.schedule,
+                    "join_code": join_code,
+                }
+            ).execute()
+            return CourseResponse.model_validate(ins.data[0])
         except APIError as e:
             if _is_unique_violation(e):
                 continue
@@ -139,20 +133,18 @@ def update_course(
 
     sb = get_supabase()
     try:
-        upd = (
-            sb.table("courses")
-            .update(data)
-            .eq("id", course_id)
-            .select(_COURSE_SELECT)
-            .single()
-            .execute()
-        )
+        upd = sb.table("courses").update(data).eq("id", course_id).execute()
     except APIError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not update course",
         ) from e
-    return CourseResponse.model_validate(upd.data)
+    if not upd.data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not update course",
+        )
+    return CourseResponse.model_validate(upd.data[0])
 
 
 @router.post("/{course_id}/enroll", response_model=CourseResponse)
