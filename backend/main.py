@@ -17,6 +17,7 @@ from intelligence.ingestion.router import router as ingestion_router
 from intelligence.quiz.router import router as quiz_router
 from app_platform.lessons.router import router as lessons_router
 from app_platform.materials.router import router as materials_router
+from engagement.router import router as engagement_router
 
 load_dotenv()
 
@@ -52,6 +53,7 @@ app.include_router(ingestion_router)
 app.include_router(quiz_router)
 app.include_router(lessons_router)
 app.include_router(materials_router)
+app.include_router(engagement_router)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
