@@ -1,30 +1,66 @@
-from fastapi import FastAPI
-import psycopg2
 import os
-from dotenv import load_dotenv
-from supabase import create_client, Client
+import sys
+from pathlib import Path
+from typing import Optional
 
-app = FastAPI(title="Project X API")
+_repo_root = Path(__file__).resolve().parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+_backend_dir = Path(__file__).resolve().parent
+if (_backend_dir / "platform").is_dir():
+    raise RuntimeError(
+        "Remove or rename backend/platform/: that folder name shadows Python's standard "
+        "library module 'platform' and breaks httpx, SQLAlchemy, and other packages. "
+        "Auth code lives under backend/deductible/platform/auth/."
+    )
+
+from dotenv import load_dotenv
 
 load_dotenv()
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from supabase import Client, create_client
+
+from backend.deductible.platform.auth.router import router as auth_router
+
+app = FastAPI(title="Project X API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth_router)
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Optional[Client] = None
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-app = FastAPI()
-from postgrest.exceptions import APIError
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
 
 @app.get("/items")
 def read_items():
+    from postgrest.exceptions import APIError
+
+    if supabase is None:
+        return {"error": "Supabase is not configured"}
     try:
-        # Fetching data from 'shop_items'
         response = supabase.table("shop_items").select("*", count="exact").execute()
         print(response.count)
-        print('response', response)
+        print("response", response)
         return response.data
     except APIError as e:
-        # Returns the Supabase error message (e.g., table not found)
         return {"error": e.message, "details": e.details}
     except Exception as e:
         return {"error": "An unexpected error occurred", "details": str(e)}
