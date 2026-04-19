@@ -40,7 +40,7 @@ function mascotSrc(mood: FinnMood, isSpeaking: boolean): string {
   return publicMascotUrl(file[mood])
 }
 
-export function FinnMascot({ mood, isSpeaking = false, className = '', size = 120 }: Props) {
+export function FinnMascot({ mood = "celebrating", isSpeaking = false, className = '', size = 120 }: Props) {
   const src = mascotSrc(mood, isSpeaking)
 
   return (
@@ -73,9 +73,9 @@ export function FinnMascot({ mood, isSpeaking = false, className = '', size = 12
           draggable={false}
         />
       </motion.div>
-      <p className="text-foreground/70 mt-1 font-mono text-[0.65rem] uppercase tracking-widest">
+      {/* <p className="text-foreground/70 mt-1 font-mono text-[0.65rem] uppercase tracking-widest">
         {mood}
-      </p>
+      </p> */}
     </div>
   )
 }

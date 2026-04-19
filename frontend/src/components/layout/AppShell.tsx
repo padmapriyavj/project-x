@@ -104,7 +104,7 @@ export function AppShell() {
             to={brandTo}
             className="font-heading text-foreground min-w-0 shrink-0 text-lg tracking-tight sm:text-xl"
           >
-            Deductible
+            🦊 Deducto 
           </Link>
 
           {/* Desktop nav */}
