@@ -13,20 +13,23 @@ export function RequireAuth({
   children?: ReactNode
 }) {
   const token = useAuthStore((s) => s.token)
-  const role = useAuthStore((s) => s.user?.role)
+  const user = useAuthStore((s) => s.user)
+  const isInitialized = useAuthStore((s) => s.isInitialized)
   const location = useLocation()
 
-  if (!token) {
+  // Don't redirect until initialization is complete
+  // (AuthInitializer should handle this, but this is a safety check)
+  if (!isInitialized) {
+    return null
+  }
+
+  if (!token || !user) {
     return (
       <Navigate to="/login" replace state={{ from: location.pathname }} />
     )
   }
 
-  if (
-    allowedRoles?.length &&
-    role &&
-    !allowedRoles.includes(role)
-  ) {
+  if (allowedRoles?.length && user.role && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />
   }
 

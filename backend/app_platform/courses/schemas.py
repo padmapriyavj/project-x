@@ -20,6 +20,13 @@ class EnrollRequest(BaseModel):
     join_code: str
 
 
+class CourseJoinInfo(BaseModel):
+    """Minimal public info for the student join page (no auth)."""
+
+    id: int
+    name: str
+
+
 class CourseResponse(BaseModel):
     model_config = {"from_attributes": True}
 

@@ -8,7 +8,7 @@ from database import get_supabase
 from models.user import User
 
 from .dependencies import get_current_user
-from .schemas import AuthResponse, LoginRequest, SignupRequest, UserResponse
+from .schemas import AuthResponse, LoginRequest, SignupRequest, UserResponse, UserUpdateBody
 from .security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -90,6 +90,40 @@ def login(body: LoginRequest) -> AuthResponse:
 @router.get("/me", response_model=UserResponse)
 def me(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+def patch_me(
+    body: UserUpdateBody,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> UserResponse:
+    data = body.model_dump(exclude_unset=True)
+    if not data:
+        return UserResponse(
+            id=current_user.id,
+            email=current_user.email,
+            role=current_user.role,
+            display_name=current_user.display_name,
+            avatar_config=dict(current_user.avatar_config or {}),
+            coins=current_user.coins,
+            current_streak=current_user.current_streak,
+            longest_streak=current_user.longest_streak,
+            streak_freezes=current_user.streak_freezes,
+            created_at=current_user.created_at,
+        )
+    sb = get_supabase()
+    try:
+        upd = sb.table("users").update(data).eq("id", current_user.id).execute()
+    except APIError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not update profile",
+        ) from e
+    if not upd.data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not update profile")
+    row = upd.data[0]
+    public = {k: v for k, v in row.items() if k != "password_hash"}
+    return UserResponse.model_validate(public)  # type: ignore[arg-type]
 
 
 @router.post("/logout")

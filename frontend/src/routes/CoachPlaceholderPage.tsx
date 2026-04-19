@@ -3,6 +3,9 @@ import type { VoiceConversation } from '@elevenlabs/client'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import {
   endCoachConversationSession,
   getCoachSessionStatus,
@@ -66,48 +69,56 @@ export function CoachPlaceholderPage() {
 
   return (
     <section className="text-left">
-      <h1 className="mb-2 text-2xl">Chat with Finn</h1>
-      <p className="text-foreground/75 mb-4 max-w-xl text-sm">
-        PRD §7.8 — live voice uses ElevenLabs <strong>Conversational AI</strong> via{' '}
-        <code className="font-mono text-xs">@elevenlabs/client</code>. Allow the microphone when the
-        browser prompts. Official docs:{' '}
-        <a
-          href="https://elevenlabs.io/docs/conversational-ai"
-          className="text-primary underline-offset-2 hover:underline"
-          target="_blank"
-          rel="noreferrer"
-        >
-          elevenlabs.io/docs/conversational-ai
-        </a>
-        .
-      </p>
-      <p className="text-foreground/80 bg-surface mb-4 max-w-xl rounded-[var(--radius-sm)] border border-divider/60 p-3 text-sm">
-        Agent: <span className="font-mono">{coachStatus}</span>
-        <br />
-        Connection: <span className="font-mono">{status}</span>
-        <br />
-        {getCoachSetupHint()}
-      </p>
-      <div className="mb-6 flex flex-wrap gap-3">
-        <button
+      <PageHeader
+        title="Chat with Finn"
+        description={
+          <>
+            Live voice uses ElevenLabs <strong>Conversational AI</strong> via{' '}
+            <code className="font-mono text-xs">@elevenlabs/client</code>. Allow the microphone when the browser prompts.
+            Official docs:{' '}
+            <a
+              href="https://elevenlabs.io/docs/conversational-ai"
+              className="text-primary underline-offset-2 hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              elevenlabs.io/docs/conversational-ai
+            </a>
+            .
+          </>
+        }
+      />
+
+      <Card padding="md" className="mb-6 max-w-xl">
+        <p className="text-foreground/80 text-sm">
+          Agent: <span className="font-mono">{coachStatus}</span>
+          <br />
+          Connection: <span className="font-mono">{status}</span>
+          <br />
+          {getCoachSetupHint()}
+        </p>
+      </Card>
+
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <Button
           type="button"
+          variant="secondary"
           onClick={() => void start()}
           disabled={phase === 'connecting' || phase === 'live' || phase === 'ending' || coachStatus !== 'ready'}
-          className="bg-secondary text-surface rounded-[var(--radius-sm)] px-4 py-2 text-sm font-semibold disabled:opacity-60"
         >
           {phase === 'connecting' ? 'Connecting…' : phase === 'live' ? 'Session active' : 'Start voice session'}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => void end()}
           disabled={phase !== 'live' && phase !== 'ending'}
-          className="border-divider rounded-[var(--radius-sm)] border px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
           {phase === 'ending' ? 'Ending…' : 'End session'}
-        </button>
+        </Button>
         <Link
           to="/student"
-          className="text-primary self-center text-sm font-medium underline-offset-2 hover:underline"
+          className="text-primary inline-flex min-h-11 items-center self-center text-sm font-medium underline-offset-2 hover:underline sm:self-auto"
         >
           Back to dashboard
         </Link>
@@ -120,9 +131,8 @@ export function CoachPlaceholderPage() {
       {coachStatus !== 'ready' ? (
         <p className="text-foreground/70 max-w-xl text-sm">
           Configure <span className="font-mono">VITE_ELEVENLABS_AGENT_ID</span> in{' '}
-          <span className="font-mono">.env.local</span> to enable the start button. For many agents you
-          also need <span className="font-mono">VITE_ELEVENLABS_API_KEY</span> in dev (never ship raw
-          keys to production clients).
+          <span className="font-mono">.env.local</span> to enable the start button. For many agents you also need{' '}
+          <span className="font-mono">VITE_ELEVENLABS_API_KEY</span> in dev (never ship raw keys to production clients).
         </p>
       ) : null}
     </section>

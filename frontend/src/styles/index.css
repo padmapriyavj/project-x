@@ -37,4 +37,13 @@
     font-family: var(--font-heading);
     @apply text-foreground font-medium tracking-tight;
   }
+
+  /* Keyboard focus — consistent ring (touch targets handled per control via min-h-11 on buttons in ui/Button) */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply outline-none ring-2 ring-primary/40 ring-offset-2 ring-offset-background;
+  }
 }

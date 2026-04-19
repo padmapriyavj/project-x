@@ -100,7 +100,7 @@ export function QuestionCard({
                 tabIndex={tabIndexFor(i)}
                 disabled={disabled}
                 onClick={() => onSelect(i)}
-                className={`border-divider text-foreground hover:border-primary/40 focus-visible:ring-primary w-full rounded-[var(--radius-sm)] border px-4 py-3 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)] ${
+                className={`border-divider text-foreground hover:border-primary/40 focus-visible:ring-primary min-h-12 w-full rounded-[var(--radius-sm)] border px-4 py-3.5 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)] ${
                   selected ? 'border-primary bg-primary/10 ring-primary/25 ring-2' : ''
                 } ${disabled ? 'opacity-60' : ''}`}
               >

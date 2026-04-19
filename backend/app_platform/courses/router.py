@@ -8,6 +8,7 @@ from database import get_supabase
 from models.user import User
 
 from .schemas import (
+    CourseJoinInfo,
     CourseResponse,
     CreateCourseRequest,
     EnrollRequest,
@@ -104,6 +105,13 @@ def list_courses(
         return []
     res = sb.table("courses").select(_COURSE_SELECT).in_("id", course_ids).execute()
     return [CourseResponse.model_validate(row) for row in (res.data or [])]
+
+
+@router.get("/{course_id}/join-info", response_model=CourseJoinInfo)
+def get_course_join_info(course_id: int) -> CourseJoinInfo:
+    """Public: course id and name for shareable join links (no JWT)."""
+    course = _course_row_or_404(course_id)
+    return CourseJoinInfo(id=course["id"], name=course["name"])
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
