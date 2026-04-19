@@ -19,7 +19,7 @@ class BetchaResolution:
     met_90: bool
 
 
-def validate_stake(stake_coins: int | None) -> None:
+def validate_stake(stake_coins: int) -> None:
     if stake_coins is None:
         return
     if stake_coins not in ALLOWED_STAKES:

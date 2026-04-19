@@ -5,7 +5,7 @@ from sqlalchemy import Date, DateTime, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.database import Base
+from database import Base
 
 
 class User(Base):

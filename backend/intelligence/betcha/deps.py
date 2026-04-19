@@ -9,7 +9,7 @@ from fastapi import Header, HTTPException, status
 Check with Person A on this implementation -> Should ask them to add X-User-Id header to the request
 '''
 async def get_current_user_id(
-    x_user_id: Annotated[UUID | None, Header(alias="X-User-Id")] = None,
+    x_user_id: Annotated[UUID, Header(alias="X-User-Id")] = None,
 ) -> UUID:
     if x_user_id is None:
         raise HTTPException(

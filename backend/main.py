@@ -2,15 +2,14 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from supabase import Client, create_client
-from backend.deductible.platform.auth.router import router as auth_router
-from dotenv import load_dotenv
-from fastapi import FastAPI
 from postgrest.exceptions import APIError
 from supabase import Client, create_client
+
+from app_platform.auth.router import router as auth_router
 from intelligence.betcha.router import router as betcha_router
 
 load_dotenv()
@@ -27,7 +26,7 @@ if (_backend_dir / "platform").is_dir():
     raise RuntimeError(
         "Remove or rename backend/platform/: that folder name shadows Python's standard "
         "library module 'platform' and breaks httpx, SQLAlchemy, and other packages. "
-        "Auth code lives under backend/deductible/platform/auth/."
+        "Auth code lives under backend/app_platform/auth/."
     )
 
 app.add_middleware(
@@ -38,7 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router, betcha_router)
+app.include_router(auth_router)
+app.include_router(betcha_router)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -51,10 +51,9 @@ if SUPABASE_URL and SUPABASE_KEY:
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
+
 @app.get("/items")
 def read_items():
-    from postgrest.exceptions import APIError
-
     if supabase is None:
         return {"error": "Supabase is not configured"}
     try:

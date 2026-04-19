@@ -32,5 +32,5 @@ class FinalizeBetchaBody(BaseModel):
 class FinalizeBetchaResponse(BaseModel):
     attempt_id: UUID
     betcha_applied: bool
-    payout_coins: int | None = None
-    effective_factor: int | None = None
+    payout_coins: int = None
+    effective_factor: int = None

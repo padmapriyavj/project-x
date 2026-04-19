@@ -107,7 +107,7 @@ def apply_betcha_resolution_to_attempt(
     attempt_id: UUID,
     score_percent: Decimal,
     base_coins: int,
-) -> BetchaResolution | None:
+) -> BetchaResolution:
     """
     If a wager exists: credit payout, set ``betcha_resolved``, ``coins_earned``, ``score_pct``.
 

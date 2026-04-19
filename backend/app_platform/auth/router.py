@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.database import get_db
-from backend.models.user import User
+from database import get_db
+from models.user import User
 
 from .dependencies import get_current_user
 from .schemas import AuthResponse, LoginRequest, SignupRequest, UserResponse
