@@ -19,6 +19,107 @@ def _client() -> OpenAI:
     return OpenAI(api_key=key)
 
 
+def _question_item_schema() -> dict[str, Any]:
+    """One MCQ object; keys must match DB / frontend expectations."""
+    return {
+        "type": "object",
+        "properties": {
+            "text": {
+                "type": "string",
+                "description": "The question stem shown to the student.",
+            },
+            "choices": {
+                "type": "array",
+                "description": "Exactly four options with keys A, B, C, D.",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Must be A, B, C, or D.",
+                            "enum": ["A", "B", "C", "D"],
+                        },
+                        "text": {"type": "string", "description": "Answer option text."},
+                    },
+                    "required": ["key", "text"],
+                    "additionalProperties": False,
+                },
+            },
+            "correct_choice": {
+                "type": "string",
+                "description": "The single correct letter.",
+                "enum": ["A", "B", "C", "D"],
+            },
+            "concept_id": {
+                "type": "string",
+                "description": "UUID string matching the concept for this question.",
+            },
+            "difficulty": {
+                "type": "string",
+                "enum": ["easy", "medium", "hard"],
+            },
+        },
+        "required": ["text", "choices", "correct_choice", "concept_id", "difficulty"],
+        "additionalProperties": False,
+    }
+
+
+def _quiz_questions_json_schema(num_questions: int) -> dict[str, Any]:
+    if num_questions < 1:
+        raise ValueError("num_questions must be >= 1")
+    return {
+        "name": "quiz_mcq_batch",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "description": f"Exactly {num_questions} questions in the same order as the required sequence.",
+                    "minItems": num_questions,
+                    "maxItems": num_questions,
+                    "items": _question_item_schema(),
+                }
+            },
+            "required": ["questions"],
+            "additionalProperties": False,
+        },
+    }
+
+
+_QUIZ_EXAMPLE_BLOCK = """
+## Example output shape (structure only — questions must follow YOUR required sequence below)
+
+```json
+{
+  "questions": [
+    {
+      "text": "What is the time complexity of binary search on a sorted array of n elements?",
+      "choices": [
+        {"key": "A", "text": "O(n)"},
+        {"key": "B", "text": "O(log n)"},
+        {"key": "C", "text": "O(n log n)"},
+        {"key": "D", "text": "O(1)"}
+      ],
+      "correct_choice": "B",
+      "concept_id": "00000000-0000-0000-0000-000000000000",
+      "difficulty": "medium"
+    }
+  ]
+}
+```
+
+Rules:
+- Top-level key must be exactly `"questions"` (array).
+- Each question has exactly four `choices` with keys A, B, C, D (each key once).
+- `correct_choice` must equal one of the choice keys.
+- `concept_id` must be the UUID string from the assignment line for that row.
+- `difficulty` must be exactly `"easy"`, `"medium"`, or `"hard"` as assigned.
+"""
+
+
 def generate_mcq_batch(
     *,
     context_text: str,
@@ -30,6 +131,7 @@ def generate_mcq_batch(
     ``concept_specs``: ``[{id, name, description}, ...]``
     ``allocations``: ordered list of (concept_id str, difficulty) per question index.
     """
+    n = len(allocations)
     spec_lines = "\n".join(
         f"- {c['id']}: {c['name']} — {c.get('description') or ''}" for c in concept_specs
     )
@@ -39,16 +141,16 @@ def generate_mcq_batch(
 
     system = (
         "You write multiple-choice questions for university courses. "
-        "Output ONLY valid JSON: an object with key \"questions\" whose value is an array. "
-        "Each element must have: text (string), choices (array of {key, text} with keys A,B,C,D), "
-        "correct_choice (one of A,B,C,D), concept_id (uuid string), difficulty (easy|medium|hard). "
-        "Questions must match the concept and difficulty assigned for that index in order."
+        "Follow the JSON schema exactly. Each question must align with the concept_id and difficulty "
+        "given for that line number. Ground stems in the course material context when possible."
     )
     user = (
+        _QUIZ_EXAMPLE_BLOCK
+        + "\n---\n"
         f"Course material context (may be truncated):\n{context_text[:80_000]}\n\n"
         f"Concepts:\n{spec_lines}\n\n"
-        f"Required question sequence ({len(allocations)} questions):\n{alloc_lines}\n"
-        "Return {\"questions\": [ ... ]} with exactly one object per required line, in order."
+        f"Required question sequence — produce EXACTLY {n} questions in this order (line 1 = questions[0], etc.):\n"
+        f"{alloc_lines}\n"
     )
 
     resp = _client().chat.completions.create(
@@ -58,13 +160,13 @@ def generate_mcq_batch(
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        response_format={"type": "json_object"},
+        response_format={"type": "json_schema", "json_schema": _quiz_questions_json_schema(n)},
     )
     raw = resp.choices[0].message.content or "{}"
     data = json.loads(raw)
     arr = data.get("questions")
-    if not isinstance(arr, list) or len(arr) != len(allocations):
-        raise ValueError("Model returned wrong number of questions")
+    if not isinstance(arr, list) or len(arr) != n:
+        raise ValueError(f"Model returned wrong number of questions (expected {n}, got {len(arr) if isinstance(arr, list) else 'invalid'})")
 
     out: list[QuestionDraft] = []
     for i, item in enumerate(arr):
@@ -108,4 +210,4 @@ def regenerate_single_mcq(
 
 
 def build_generation_metadata(model: str, seed: str | None = None) -> dict[str, Any]:
-    return {"model": model, "prompt_version": "quiz_v1", "seed": seed}
+    return {"model": model, "prompt_version": "quiz_v2_structured", "seed": seed}
