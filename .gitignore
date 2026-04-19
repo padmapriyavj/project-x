@@ -10,3 +10,5 @@ __pycache__/
 *.py[cod]
 .Python
 .env
+.cursor/
+.pytest_cache/

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
+import { FinnChatWidget } from '@/components/finn/FinnChatWidget'
 import { NotificationsDrawer } from '@/components/layout/NotificationsDrawer'
 import { AvatarImg } from '@/components/ui/AvatarImg'
 import { useAuthStore } from '@/stores/authStore'
 import type { UserPublic } from '@/stores/authStore'
+import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
 
 const navLinkClass =
   'rounded-[var(--radius-sm)] px-3 py-3 text-sm font-medium text-secondary transition-colors hover:bg-background hover:text-primary md:py-2'
@@ -36,13 +38,17 @@ export function AppShell() {
   const token = useAuthStore((s) => s.token)
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const coins = useStudentEconomyStore((s) => s.coins)
   const [menuOpen, setMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const location = useLocation()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  const streakDays = user?.current_streak ?? 0
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMenuOpen(false)
     setDropdownOpen(false)
   }, [location.pathname])
@@ -110,12 +116,25 @@ export function AppShell() {
                 </nav>
                 <button
                   type="button"
-                  className="text-foreground/80 hover:bg-background mx-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-xs font-semibold uppercase tracking-wide"
+                  className="text-foreground/80 hover:bg-background mx-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-xl transition-transform hover:scale-110"
                   aria-label="Notifications"
                   onClick={() => setNotifOpen(true)}
                 >
-                  Alerts
+                  🔔
                 </button>
+                {user.role === 'student' ? (
+                  <div className="mx-2 flex items-center gap-3">
+                    <div className="bg-background/60 flex items-center gap-1.5 rounded-full px-2.5 py-1" title={`${streakDays} day streak`}>
+                      <span className="text-base">🔥</span>
+                      <span className="text-foreground font-mono text-sm font-semibold">{streakDays}</span>
+                    </div>
+                    <div className="bg-background/60 flex items-center gap-1.5 rounded-full px-2.5 py-1" title={`${coins} coins`}>
+                      <span className="text-base">🪙</span>
+                      <span className="text-gold font-mono text-sm font-semibold">{coins}</span>
+                    </div>
+                  </div>
+                ) : null}
+                
                 <div ref={dropdownRef} className="relative">
                   <button
                     type="button"
@@ -239,6 +258,18 @@ export function AppShell() {
                     <p className="truncate font-medium">{user.display_name ?? 'Account'}</p>
                     <p className="text-foreground/60 truncate text-xs">{user.email}</p>
                   </div>
+                  {user.role === 'student' ? (
+                    <div className="flex items-center gap-2">
+                      <div className="bg-background/60 flex items-center gap-1 rounded-full px-2 py-0.5" title={`${streakDays} day streak`}>
+                        <span className="text-sm">🔥</span>
+                        <span className="text-foreground font-mono text-xs font-semibold">{streakDays}</span>
+                      </div>
+                      <div className="bg-background/60 flex items-center gap-1 rounded-full px-2 py-0.5" title={`${coins} coins`}>
+                        <span className="text-sm">🪙</span>
+                        <span className="text-gold font-mono text-xs font-semibold">{coins}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <p className="text-foreground/50 mb-1 text-xs font-semibold uppercase tracking-wide">
                   Navigate
@@ -327,7 +358,12 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      {token && user ? <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} /> : null}
+      {token && user ? (
+        <>
+          <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
+          <FinnChatWidget />
+        </>
+      ) : null}
     </div>
   )
 }

@@ -190,10 +190,13 @@ def list_course_students(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[StudentResponse]:
     course = _course_row_or_404(course_id)
-    if course["professor_id"] != current_user.id:
+    is_professor = course["professor_id"] == current_user.id
+    is_enrolled = _user_enrolled(current_user.id, course_id)
+
+    if not is_professor and not is_enrolled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the course owner can view students",
+            detail="Only the course owner or enrolled students can view students",
         )
 
     sb = get_supabase()

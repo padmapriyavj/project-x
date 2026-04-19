@@ -9,7 +9,7 @@ export function PracticeHubPage() {
   const courses = useCoursesQuery()
 
   return (
-    <section className="text-left">
+    <section className="mx-auto max-w-2xl text-center">
       <PageHeader
         title="Practice test"
         description="Pick a course to open the practice lobby for solo runs or duels."
@@ -22,16 +22,16 @@ export function PracticeHubPage() {
         </p>
       ) : null}
 
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {(courses.data ?? []).map((course) => (
           <li key={course.id}>
-            <Card padding="md" className="h-full">
+            <Card padding="md" className="h-full text-center">
               <h2 className="font-heading text-foreground text-lg">{course.name}</h2>
               <p className="text-foreground/70 mt-2 text-sm">Open the practice lobby for this course.</p>
               <Link
                 to={`/student/practice/lobby/${course.id}`}
                 state={{ courseName: course.name }}
-                className="bg-primary text-surface shadow-soft border-primary/20 mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-sm)] border px-4 text-sm font-semibold transition-opacity hover:opacity-95 sm:w-auto"
+                className="bg-primary text-surface shadow-soft border-primary/20 mt-4 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-sm)] border px-6 text-sm font-semibold transition-opacity hover:opacity-95"
               >
                 Open lobby
               </Link>
@@ -42,11 +42,6 @@ export function PracticeHubPage() {
       {(courses.data?.length ?? 0) === 0 && courses.isSuccess ? (
         <p className="text-foreground/70 mt-4 text-sm">You are not enrolled in any courses yet.</p>
       ) : null}
-
-      <p className="text-foreground/60 mt-6 text-xs">
-        Tempos scheduled by your professor appear on your course page — open one from there when the window
-        opens.
-      </p>
     </section>
   )
 }

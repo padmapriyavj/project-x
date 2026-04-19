@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   /** ElevenLabs TTS (PRD §8.1). Prefer proxy in production; browser key is dev/hackathon only. */
   readonly VITE_ELEVENLABS_API_KEY?: string
   readonly VITE_ELEVENLABS_VOICE_ID?: string
+  /** TTS playback speed (default 1.1). ElevenLabs allows roughly 0.25–4. */
+  readonly VITE_ELEVENLABS_TTS_SPEED?: string
   /** Conversational AI agent id for Coach (PRD §7.8). */
   readonly VITE_ELEVENLABS_AGENT_ID?: string
 

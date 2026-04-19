@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
-import { BetchaSelector } from '@/components/betcha/BetchaSelector'
 import { Button } from '@/components/ui/Button'
 import { useQuizRoomConnection } from '@/hooks/useQuizRoomConnection'
 import type { FinnMood } from '@/components/finn/FinnMascot'
@@ -110,10 +109,12 @@ export function QuizRunnerPage() {
   const duelStartSent = useRef(false)
   const wsJoined = useRef(false)
   const wsCompleteHandled = useRef(false)
+  const lastSpokenQuestionId = useRef<string | null>(null)
 
   const [apiQuizQuestions, setApiQuizQuestions] = useState<MockQuestion[] | null>(null)
   const [apiQuizLoadError, setApiQuizLoadError] = useState<string | null>(null)
   const [countdownSeconds, setCountdownSeconds] = useState(QUESTION_SECONDS)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!run?.api || !token || useRealtime) return
@@ -153,6 +154,8 @@ export function QuizRunnerPage() {
     if (!run || useRealtime) return
     const q = run.api ? apiQuizQuestions?.[qIndex] : mockQuizQuestions[qIndex]
     if (!q) return
+    if (lastSpokenQuestionId.current === q.id) return
+    lastSpokenQuestionId.current = q.id
     let cancelled = false
     const play = async () => {
       setReading(true)
@@ -174,6 +177,8 @@ export function QuizRunnerPage() {
 
   useEffect(() => {
     if (!run || !useRealtime || !wsQuestion) return
+    if (lastSpokenQuestionId.current === wsQuestion.id) return
+    lastSpokenQuestionId.current = wsQuestion.id
     let cancelled = false
     const play = async () => {
       setReading(true)
@@ -509,6 +514,7 @@ export function QuizRunnerPage() {
     const nextCorrect = correctCount + (ok ? 1 : 0)
     const isLast = qIndex + 1 >= soloBank.length
     if (isLast) {
+      setSubmitting(true)
       await finishRun(nextCorrect)
       return
     }
@@ -603,43 +609,36 @@ export function QuizRunnerPage() {
     : `Question ${qIndex + 1} of ${soloTotalLabel}`
 
   return (
-    <section className="text-left" aria-label="Quiz">
-      <nav className="text-foreground/70 mb-4 text-sm" aria-label="Breadcrumb">
+    <section className="text-center" aria-label="Quiz">
+      <nav className="text-foreground/70 mb-4 text-left text-sm" aria-label="Breadcrumb">
         <Link to="/student/practice" className="text-primary hover:underline">
           Practice
         </Link>
         <span className="mx-2">/</span>
         <span className="font-mono text-foreground/80">{decodedRoomId}</span>
       </nav>
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-foreground/65 text-xs uppercase tracking-wide">
-            {run.mode} · Room
-          </p>
-          <h1 className="text-foreground text-xl">{run.courseName ?? 'Quiz'}</h1>
+
+      {/* Centered header with mascot */}
+      <div className="mb-6">
+        <p className="text-foreground/65 text-xs uppercase tracking-wide">
+          {run.mode} · Room
+        </p>
+        <h1 className="text-foreground mb-4 text-xl font-bold">{run.courseName ?? 'Quiz'}</h1>
+        <div className="flex justify-center">
+          <FinnMascot mood={finnMood} isSpeaking={reading} size={140} />
         </div>
-        <FinnMascot mood={finnMood} isSpeaking={reading} />
       </div>
 
       {betchaError ? (
-        <p className="text-danger mb-4 max-w-xl text-sm" role="alert">
+        <p className="text-danger mx-auto mb-4 max-w-xl text-sm" role="alert">
           {betchaError}
         </p>
       ) : null}
       {wsError ? (
-        <p className="text-danger mb-4 max-w-xl text-sm" role="alert">
+        <p className="text-danger mx-auto mb-4 max-w-xl text-sm" role="alert">
           {wsError}
         </p>
       ) : null}
-
-      <div className="mb-6 max-w-lg">
-        <BetchaSelector
-          value={run.betcha}
-          onChange={() => {}}
-          locked={betchaLocked}
-          disabled={!!run.api}
-        />
-      </div>
 
       <div className="mx-auto mb-4 flex w-full max-w-2xl flex-wrap items-center justify-between gap-4">
         <p className="text-foreground/70 text-sm">{questionLabel}</p>
@@ -661,14 +660,33 @@ export function QuizRunnerPage() {
       </div>
 
       <div className="mx-auto mt-6 w-full max-w-2xl">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={selected === null || reading}
-          onClick={() => void submitOrTimeoutFixed()}
-        >
-          Lock answer
-        </Button>
+        {(() => {
+          const soloBank = run?.api ? (apiQuizQuestions ?? []) : mockQuizQuestions
+          const totalQ = useRealtime ? wsTotal : soloBank.length
+          const currentIdx = useRealtime ? wsIndex : qIndex
+          const isLastQuestion = currentIdx + 1 >= totalQ && totalQ > 0
+          
+          return (
+            <Button
+              type="button"
+              variant={isLastQuestion ? 'primary' : 'secondary'}
+              disabled={selected === null || reading || submitting}
+              onClick={() => void submitOrTimeoutFixed()}
+              className={isLastQuestion ? 'min-w-[140px]' : ''}
+            >
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Submitting...
+                </span>
+              ) : isLastQuestion ? (
+                'Submit Quiz'
+              ) : (
+                'Lock answer'
+              )}
+            </Button>
+          )
+        })()}
       </div>
 
       {showSocketDemoHint ? (

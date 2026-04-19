@@ -2,6 +2,27 @@ import { useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { EventAccordion, type CompletedEvent } from '@/components/courses/EventAccordion'
+
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+type ClassMeeting = {
+  weekday: number
+  start: string
+  end: string
+}
+
+type ScheduleData = {
+  timezone?: string
+  class_meetings?: ClassMeeting[]
+}
+
+function formatTime12h(time24: string): string {
+  const [h, m] = time24.split(':').map(Number)
+  if (h === undefined || m === undefined) return time24
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h % 12 || 12
+  return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`
+}
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -196,16 +217,50 @@ export function StudentCoursePage() {
               <dt className="text-foreground/60 text-xs font-medium uppercase tracking-wide">Course ID</dt>
               <dd className="text-foreground font-mono">{c.id}</dd>
             </div>
-            {Object.keys(c.schedule).length > 0 ? (
-              <div>
-                <dt className="text-foreground/60 mb-1 text-xs font-medium uppercase tracking-wide">Schedule</dt>
-                <dd className="text-foreground max-h-48 overflow-auto rounded-[var(--radius-sm)] bg-background/50 p-3 font-mono text-xs">
-                  <pre className="whitespace-pre-wrap break-words">{JSON.stringify(c.schedule, null, 2)}</pre>
-                </dd>
-              </div>
-            ) : (
-              <p className="text-foreground/60 text-sm">No schedule details yet.</p>
-            )}
+            {(() => {
+              const schedule = c.schedule as ScheduleData
+              const meetings = schedule?.class_meetings ?? []
+              const timezone = schedule?.timezone
+              
+              if (meetings.length === 0 && !timezone) {
+                return <p className="text-foreground/60 text-sm">No schedule details yet.</p>
+              }
+              
+              return (
+                <div>
+                  <dt className="text-foreground/60 mb-2 text-xs font-medium uppercase tracking-wide">Schedule</dt>
+                  <dd className="space-y-2">
+                    {meetings.length > 0 ? (
+                      <ul className="space-y-2">
+                        {meetings.map((m, i) => (
+                          <li
+                            key={i}
+                            className="bg-background/50 border-divider/40 flex items-center gap-3 rounded-[var(--radius-sm)] border px-3 py-2"
+                          >
+                            <span className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-full text-sm">
+                              📅
+                            </span>
+                            <div>
+                              <p className="text-foreground text-sm font-medium">
+                                {WEEKDAY_NAMES[m.weekday] ?? `Day ${m.weekday}`}
+                              </p>
+                              <p className="text-foreground/70 text-xs">
+                                {formatTime12h(m.start)} – {formatTime12h(m.end)}
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {timezone ? (
+                      <p className="text-foreground/60 text-xs">
+                        🌐 {timezone.replace(/_/g, ' ')}
+                      </p>
+                    ) : null}
+                  </dd>
+                </div>
+              )
+            })()}
           </dl>
         </Card>
       </div>
@@ -239,13 +294,19 @@ export function StudentCoursePage() {
         {upcoming.length === 0 ? (
           <p className="text-foreground/70 text-sm">No upcoming Tempos scheduled.</p>
         ) : (
-          <ul className="space-y-2 text-sm">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {upcoming.map((t) => (
-              <li key={t.id} className="text-foreground/80">
-                {t.line}
-              </li>
+              <Card key={t.id} padding="md" className="flex items-center gap-3">
+                <div className="bg-primary/10 text-primary flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-lg">
+                  📅
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-foreground truncate text-sm font-medium">{t.line}</p>
+                  <p className="text-foreground/60 text-xs">Upcoming event</p>
+                </div>
+              </Card>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 

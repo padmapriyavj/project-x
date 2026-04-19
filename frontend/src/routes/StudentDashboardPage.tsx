@@ -4,18 +4,13 @@ import { useState } from 'react'
 import { StudentCourseCard } from '@/components/courses/StudentCourseCard'
 import { JoinCourseModal } from '@/components/courses/JoinCourseModal'
 import { Button } from '@/components/ui/Button'
-import { CoinCounter } from '@/components/dashboard/CoinCounter'
-import { StudentCoachCta } from '@/components/dashboard/StudentCourseCard'
-import { StreakFlame } from '@/components/dashboard/StreakFlame'
 import type { FinnMood } from '@/components/finn/FinnMascot'
 import { FinnMascot } from '@/components/finn/FinnMascot'
-import { PageHeader } from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { useStudentDashboardQuery } from '@/lib/queries/dashboardQueries'
 import { useCoursesQuery } from '@/lib/queries/courseQueries'
 import { playFinnGreeting } from '@/lib/voice/playFinnGreeting'
 import { useAuthStore } from '@/stores/authStore'
-import { useStudentEconomyStore } from '@/stores/studentEconomyStore'
 
 const moods: FinnMood[] = [
   'neutral',
@@ -34,7 +29,6 @@ export function StudentDashboardPage() {
   const user = useAuthStore((s) => s.user)
   const dashboard = useStudentDashboardQuery()
   const coursesFallback = useCoursesQuery()
-  const coins = useStudentEconomyStore((s) => s.coins)
 
   const greeting = useMutation({
     mutationFn: playFinnGreeting,
@@ -45,51 +39,43 @@ export function StudentDashboardPage() {
 
   const mood = moods[moodIndex] ?? 'neutral'
 
-  const title = `Welcome${user?.display_name ? `, ${user.display_name}` : ''}`
-
-  const streakDays = dashboard.data?.user.current_streak ?? user?.current_streak ?? 0
-  const coinDisplay = dashboard.data?.user.coins ?? coins
+  const welcomeMessage = user?.display_name
+    ? `Hey ${user.display_name}! Ready to learn something new today?`
+    : 'Hey there! Ready to learn something new today?'
 
   return (
     <div className="text-left">
-      <PageHeader
-        title={title}
-        description="Use the header to open Practice, Shop, Space, and Coach. Finn is here when you need a quick demo."
-        actions={
+      {/* Finn welcome section */}
+      <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-6">
+        <button
+          type="button"
+          onClick={() => greeting.mutate()}
+          disabled={greeting.isPending}
+          className="group relative flex-shrink-0 focus:outline-none"
+          aria-label="Play Finn's greeting"
+        >
+          <FinnMascot mood={mood} isSpeaking={greeting.isPending} size={100} />
+          <span className="bg-primary/90 text-primary-foreground absolute -bottom-1 -right-1 rounded-full p-1.5 text-xs opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+            🔊
+          </span>
+        </button>
+        <div className="relative max-w-md">
+          <div className="bg-surface border-divider/60 shadow-soft relative rounded-2xl border px-5 py-4">
+            <p className="text-foreground text-base font-medium">{welcomeMessage}</p>
+            {voiceError ? (
+              <p className="text-danger mt-2 text-xs">{voiceError}</p>
+            ) : null}
+          </div>
+          {/* Speech bubble pointer */}
+          <div className="border-surface absolute -left-2 top-4 hidden h-4 w-4 rotate-45 border-b border-l sm:block" style={{ backgroundColor: 'var(--color-surface)' }} />
+        </div>
+        <div className="flex gap-2 sm:ml-auto">
+          <Button variant="ghost" size="sm" type="button" onClick={() => setMoodIndex((i) => (i + 1) % moods.length)}>
+            Cycle mood
+          </Button>
           <Button type="button" onClick={() => setIsJoinModalOpen(true)}>
             Join course
           </Button>
-        }
-      />
-
-      <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_auto] lg:items-start">
-        <div className="order-2 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:order-1">
-          <StreakFlame days={streakDays} />
-          <CoinCounter value={coinDisplay} />
-          <div className="flex items-stretch justify-center sm:justify-start">
-            <StudentCoachCta />
-          </div>
-        </div>
-        <div className="order-1 flex flex-col items-center gap-3 lg:order-2 lg:items-end">
-          <FinnMascot mood={mood} isSpeaking={greeting.isPending} />
-          <div className="flex w-full max-w-xs flex-col gap-2 sm:max-w-none lg:items-end">
-            <Button variant="ghost" size="sm" type="button" onClick={() => setMoodIndex((i) => (i + 1) % moods.length)}>
-              Cycle Finn mood (demo)
-            </Button>
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => greeting.mutate()}
-              disabled={greeting.isPending}
-              fullWidth
-              className="lg:w-auto"
-            >
-              {greeting.isPending ? 'Playing...' : "Play Finn's greeting"}
-            </Button>
-            {voiceError ? (
-              <p className="text-danger text-center text-xs lg:text-right">{voiceError}</p>
-            ) : null}
-          </div>
         </div>
       </div>
 

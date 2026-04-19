@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
-import { BetchaSelector } from '@/components/betcha/BetchaSelector'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/FormField'
@@ -82,17 +81,6 @@ export function PracticeLobbyPage() {
   const createDuel = useCreateDuelMutation(token)
   const joinDuel = useJoinDuelMutation(token)
   const duelAttempt = useCreateDuelAttemptMutation(token)
-
-  const startSoloOfflineDemo = () => {
-    const roomId = `mock-${crypto.randomUUID?.() ?? String(Date.now())}`
-    const state: QuizRunLocationState = {
-      mode,
-      betcha,
-      lessonId: courseIdParam ?? 'unknown',
-      courseName,
-    }
-    navigate(`/student/quiz/${roomId}`, { state })
-  }
 
   const startSoloPractice = async () => {
     if (selectedLessonId === '') {
@@ -363,9 +351,6 @@ export function PracticeLobbyPage() {
               <p className="text-foreground/65 text-xs">
                 Weights follow the professor flow (even split). Generation uses your enrollment for this course.
               </p>
-              <Button type="button" variant="ghost" className="text-xs" onClick={startSoloOfflineDemo}>
-                Offline demo (local mock, no scoring)
-              </Button>
             </div>
           ) : (
             <div className="mt-4 space-y-3">
@@ -401,8 +386,49 @@ export function PracticeLobbyPage() {
         </p>
       ) : null}
 
-      <div className="mb-6 max-w-lg">
-        <BetchaSelector value={betcha} onChange={setBetcha} />
+      {/* Betcha - Full width with emphasis */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-primary/20 rounded-[var(--radius-lg)] border-2 p-6 shadow-lg">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="text-2xl">🎰</span>
+            <div>
+              <h3 className="font-heading text-foreground text-lg font-bold">Place Your Betcha</h3>
+              <p className="text-foreground/70 text-sm">How confident are you? Higher risk = higher reward!</p>
+            </div>
+          </div>
+          <fieldset aria-disabled={false}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { value: 1 as const, label: '1× Safe', hint: 'Proportional payout', emoji: '🛡️' },
+                { value: 3 as const, label: '3× Bold', hint: 'Need 70%+ for full multiplier', emoji: '⚡' },
+                { value: 5 as const, label: '5× All-in', hint: 'Need 90%+ for full multiplier', emoji: '🔥' },
+              ].map((o) => (
+                <label
+                  key={o.value}
+                  className={`flex cursor-pointer flex-col items-center rounded-[var(--radius-md)] border-2 p-4 text-center transition-all ${
+                    betcha === o.value
+                      ? 'border-primary bg-primary/15 shadow-md ring-2 ring-primary/30'
+                      : 'border-divider bg-surface hover:border-primary/50 hover:shadow-sm'
+                  }`}
+                >
+                  <span className="mb-2 text-3xl">{o.emoji}</span>
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="betcha"
+                      value={o.value}
+                      checked={betcha === o.value}
+                      onChange={() => setBetcha(o.value)}
+                      className="sr-only"
+                    />
+                    <span className="font-heading text-foreground text-lg font-bold">{o.label}</span>
+                  </span>
+                  <span className="text-foreground/65 mt-1 text-xs">{o.hint}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
       </div>
 
       <Button
