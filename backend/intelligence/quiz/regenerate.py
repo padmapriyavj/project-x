@@ -60,7 +60,7 @@ def regenerate_question(
         previous_question_text=str(qrow.get("text") or ""),
     )
 
-    meta = build_generation_metadata("gpt-4o-mini")
+    meta = build_generation_metadata("gemma-3-4b-it")
     update_question_row(
         question_id,
         {

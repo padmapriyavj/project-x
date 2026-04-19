@@ -2,7 +2,13 @@ from __future__ import annotations
 import json
 from typing import Any
 from pydantic import BaseModel, Field
-from intelligence.llm.openai_compat import default_llm_model, get_openai_client, use_openai_json_schema_mode
+from intelligence.llm.openai_compat import (
+    build_messages,
+    default_llm_model,
+    get_openai_client,
+    is_gemma_model,
+    use_openai_json_schema_mode,
+)
 
 
 class _ConceptOut(BaseModel):
@@ -14,7 +20,6 @@ class _ConceptsPayload(BaseModel):
     concepts: list[_ConceptOut]
 
 
-# OpenAI strict json_schema: every object must list all properties in "required", additionalProperties: false
 _CONCEPTS_JSON_SCHEMA: dict[str, Any] = {
     "name": "concepts_extraction",
     "strict": True,
@@ -68,7 +73,9 @@ Return a single JSON object matching this exact shape. Use "concepts" as the onl
 """
 
 
-def _concepts_response_format() -> dict[str, Any]:
+def _concepts_response_format() -> dict[str, Any] | None:
+    if is_gemma_model():
+        return None  # Gemma doesn't support response_format
     if use_openai_json_schema_mode():
         return {"type": "json_schema", "json_schema": _CONCEPTS_JSON_SCHEMA}
     return {"type": "json_object"}
@@ -81,13 +88,6 @@ def extract_concepts_from_text(
     material_text: str,
     model: str | None = None,
 ) -> list[dict[str, str]]:
-    """
-    Returns list of ``{"name": str, "description": str}`` (typically 4–8 items per PRD §7.4).
-
-    Uses OpenAI structured outputs when the backend supports them; otherwise ``json_object`` mode.
-
-    Model defaults to ``LLM_MODEL`` (e.g. ``gemma3:4b`` for Ollama) or ``gpt-4o-mini`` for cloud.
-    """
     resolved_model = model or default_llm_model()
     system = (
         "You are an expert curriculum analyst. Given course context and instructional text, "
@@ -104,16 +104,25 @@ def extract_concepts_from_text(
         f"Material text:\n{material_text[:95_000]}\n"
     )
 
-    resp = get_openai_client().chat.completions.create(
-        model=resolved_model,
-        temperature=0.3,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        response_format=_concepts_response_format(),
-    )
+    kwargs: dict[str, Any] = {
+        "model": resolved_model,
+        "temperature": 0.3,
+        "messages": build_messages(system, user),
+    }
+    fmt = _concepts_response_format()
+    if fmt is not None:
+        kwargs["response_format"] = fmt
+
+    resp = get_openai_client().chat.completions.create(**kwargs)
     raw = resp.choices[0].message.content or "{}"
+
+    # Gemma sometimes wraps output in markdown code fences — strip them
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
     data = json.loads(raw)
     payload = _ConceptsPayload.model_validate(data)
     out: list[dict[str, str]] = []

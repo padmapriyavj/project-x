@@ -1,21 +1,23 @@
-"""OpenAI-backed MCQ generation (cloud OpenAI or local OpenAI-compatible server)."""
+"""MCQ generation — supports Gemma (Gemini API), cloud OpenAI, and local Ollama."""
 
 from __future__ import annotations
 import json
 from typing import Any
-from intelligence.llm.openai_compat import default_llm_model, get_openai_client, use_openai_json_schema_mode
+from intelligence.llm.openai_compat import (
+    build_messages,
+    default_llm_model,
+    get_openai_client,
+    is_gemma_model,
+    use_openai_json_schema_mode,
+)
 from intelligence.quiz.schemas import ChoiceItem, Difficulty, QuestionDraft
 
 
 def _question_item_schema() -> dict[str, Any]:
-    """One MCQ object; keys must match DB / frontend expectations."""
     return {
         "type": "object",
         "properties": {
-            "text": {
-                "type": "string",
-                "description": "The question stem shown to the student.",
-            },
+            "text": {"type": "string", "description": "The question stem shown to the student."},
             "choices": {
                 "type": "array",
                 "description": "Exactly four options with keys A, B, C, D.",
@@ -24,30 +26,16 @@ def _question_item_schema() -> dict[str, Any]:
                 "items": {
                     "type": "object",
                     "properties": {
-                        "key": {
-                            "type": "string",
-                            "description": "Must be A, B, C, or D.",
-                            "enum": ["A", "B", "C", "D"],
-                        },
-                        "text": {"type": "string", "description": "Answer option text."},
+                        "key": {"type": "string", "enum": ["A", "B", "C", "D"]},
+                        "text": {"type": "string"},
                     },
                     "required": ["key", "text"],
                     "additionalProperties": False,
                 },
             },
-            "correct_choice": {
-                "type": "string",
-                "description": "The single correct letter.",
-                "enum": ["A", "B", "C", "D"],
-            },
-            "concept_id": {
-                "type": "string",
-                "description": "String form of the integer concept id for this question.",
-            },
-            "difficulty": {
-                "type": "string",
-                "enum": ["easy", "medium", "hard"],
-            },
+            "correct_choice": {"type": "string", "enum": ["A", "B", "C", "D"]},
+            "concept_id": {"type": "string"},
+            "difficulty": {"type": "string", "enum": ["easy", "medium", "hard"]},
         },
         "required": ["text", "choices", "correct_choice", "concept_id", "difficulty"],
         "additionalProperties": False,
@@ -65,7 +53,7 @@ def _quiz_questions_json_schema(num_questions: int) -> dict[str, Any]:
             "properties": {
                 "questions": {
                     "type": "array",
-                    "description": f"Exactly {num_questions} questions in the same order as the required sequence.",
+                    "description": f"Exactly {num_questions} questions.",
                     "minItems": num_questions,
                     "maxItems": num_questions,
                     "items": _question_item_schema(),
@@ -101,11 +89,20 @@ _QUIZ_EXAMPLE_BLOCK = """
 
 Rules:
 - Top-level key must be exactly `"questions"` (array).
-- Each question has exactly four `choices` with keys A, B, C, D (each key once).
+- Each question has exactly four choices with keys A, B, C, D.
 - `correct_choice` must equal one of the choice keys.
-- `concept_id` must be the string form of the concept id from the assignment line for that row.
-- `difficulty` must be exactly `"easy"`, `"medium"`, or `"hard"` as assigned.
+- `concept_id` must be the string form of the concept id from the assignment line.
+- `difficulty` must be exactly "easy", "medium", or "hard".
 """
+
+
+def _parse_raw(raw: str) -> Any:
+    """Strip markdown code fences Gemma sometimes wraps around JSON."""
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    return json.loads(raw.strip())
 
 
 def generate_mcq_batch(
@@ -117,14 +114,6 @@ def generate_mcq_batch(
     temperature: float = 0.4,
     extra_user_instructions: str | None = None,
 ) -> list[QuestionDraft]:
-    """
-    ``concept_specs``: ``[{id, name, description}, ...]``
-    ``allocations``: ordered list of (concept_id str, difficulty) per question index.
-    ``temperature``: sampling temperature for the model (batch generation defaults to 0.4).
-    ``extra_user_instructions``: optional text appended to the user message (e.g. regeneration constraints).
-
-    Model defaults to ``LLM_MODEL`` (e.g. local Gemma via Ollama) or ``gpt-4o-mini``.
-    """
     n = len(allocations)
     resolved_model = model or default_llm_model()
     spec_lines = "\n".join(
@@ -144,37 +133,37 @@ def generate_mcq_batch(
         + "\n---\n"
         f"Course material context (may be truncated):\n{context_text[:80_000]}\n\n"
         f"Concepts:\n{spec_lines}\n\n"
-        f"Required question sequence — produce EXACTLY {n} questions in this order (line 1 = questions[0], etc.):\n"
+        f"Required question sequence — produce EXACTLY {n} questions in this order:\n"
         f"{alloc_lines}\n"
     )
     if extra_user_instructions:
         user += extra_user_instructions
 
-    if use_openai_json_schema_mode():
-        response_format: dict[str, Any] | None = {
-            "type": "json_schema",
-            "json_schema": _quiz_questions_json_schema(n),
-        }
-    else:
-        response_format = {"type": "json_object"}
-
     kwargs: dict[str, Any] = {
         "model": resolved_model,
         "temperature": temperature,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
+        "messages": build_messages(system, user),
     }
-    if response_format is not None:
-        kwargs["response_format"] = response_format
+
+    # Gemma doesn't support response_format — rely on prompt instructions only
+    if not is_gemma_model():
+        if use_openai_json_schema_mode():
+            kwargs["response_format"] = {
+                "type": "json_schema",
+                "json_schema": _quiz_questions_json_schema(n),
+            }
+        else:
+            kwargs["response_format"] = {"type": "json_object"}
 
     resp = get_openai_client().chat.completions.create(**kwargs)
     raw = resp.choices[0].message.content or "{}"
-    data = json.loads(raw)
+    data = _parse_raw(raw)
     arr = data.get("questions")
     if not isinstance(arr, list) or len(arr) != n:
-        raise ValueError(f"Model returned wrong number of questions (expected {n}, got {len(arr) if isinstance(arr, list) else 'invalid'})")
+        raise ValueError(
+            f"Model returned wrong number of questions (expected {n}, "
+            f"got {len(arr) if isinstance(arr, list) else 'invalid'})"
+        )
 
     out: list[QuestionDraft] = []
     for i, item in enumerate(arr):
@@ -215,11 +204,9 @@ def regenerate_single_mcq(
         prev = previous_question_text.strip()[:4000]
         extra = (
             "\n\n--- REGENERATION ---\n"
-            "The professor asked to replace the question below. Write a NEW multiple-choice question "
-            "for the same concept_id and difficulty as assigned above. "
-            "The stem and all four options must be substantially different—different wording and a "
-            "different angle or scenario—not a minor rephrase of the old question.\n\n"
-            f"Previous question (do not repeat or lightly paraphrase):\n{prev}\n"
+            "The professor asked to replace the question below. Write a NEW question "
+            "for the same concept_id and difficulty. Must be substantially different.\n\n"
+            f"Previous question (do not repeat):\n{prev}\n"
         )
     return generate_mcq_batch(
         context_text=context_text,

@@ -79,10 +79,10 @@ def generate_quiz(req: QuizGenerateRequest, created_by: int, *, rng_seed: int | 
         context_text=context,
         concept_specs=concept_specs,
         allocations=allocations,
-        model="gpt-4.1-mini"
+        model="gemma-3-4b-it"
     )
 
-    meta = build_generation_metadata("gpt-4o-mini", seed=str(rng_seed) if rng_seed is not None else None)
+    meta = build_generation_metadata("gemma-3-4b-it", seed=str(rng_seed) if rng_seed is not None else None)
     duration_sec = cfg.num_questions * cfg.time_per_question
     lesson_id = lesson_ids[0]
 

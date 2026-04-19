@@ -1,4 +1,4 @@
-"""Shared OpenAI SDK client: cloud OpenAI by default, Ollama or any compatible local server as override."""
+"""Shared LLM client: Gemini by default (via OpenAI-compatible SDK), OpenAI or Ollama as overrides."""
 
 from __future__ import annotations
 
@@ -6,64 +6,70 @@ import os
 
 from openai import OpenAI
 
+_GEMINI_BASE    = "https://generativelanguage.googleapis.com/v1beta/openai"
 _OLLAMA_DEFAULT = "http://127.0.0.1:11434/v1"
 
 
 def get_openai_client() -> OpenAI:
-    """
-    Priority order:
-      1. Cloud OpenAI (default) — set OPENAI_API_KEY
-      2. Local server (Ollama)  — set OPENAI_BASE_URL to local endpoint
-    """
-    key  = (os.environ.get("OPENAI_API_KEY") or "").strip()
-    base = (os.environ.get("OPENAI_BASE_URL") or "").strip().rstrip("/")
+    gemini_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    openai_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    base       = (os.environ.get("OPENAI_BASE_URL") or "").strip().rstrip("/")
 
-    # Explicit local base URL (Ollama, LM Studio, vLLM, etc.)
+    if gemini_key and not base:
+        return OpenAI(base_url=_GEMINI_BASE, api_key=gemini_key)
+
     if base:
-        return OpenAI(
-            base_url=base,
-            api_key=key or "ollama",
-        )
+        return OpenAI(base_url=base, api_key=openai_key or "ollama")
 
-    # Cloud OpenAI
-    if key:
-        return OpenAI(api_key=key)
+    if openai_key:
+        return OpenAI(api_key=openai_key)
 
     raise RuntimeError(
-        "No LLM configured. Set OPENAI_API_KEY for cloud OpenAI, "
-        "or OPENAI_BASE_URL for a local server (Ollama, etc.)."
+        "No LLM configured. Set GEMINI_API_KEY, OPENAI_API_KEY, or OPENAI_BASE_URL."
     )
 
 
-def default_llm_model(fallback: str = "gpt-4o-mini") -> str:
-    """
-    Prefer LLM_MODEL env var, then fallback.
-    Default is gpt-4o-mini — fast, cheap, great JSON output.
-    """
+def default_llm_model(fallback: str = "gemma-3-27b-it") -> str:
     m = (os.environ.get("LLM_MODEL") or "").strip()
     return m or fallback
 
 
+def is_gemma_model() -> bool:
+    """Gemma models on Gemini API don't support system prompts or response_format."""
+    return "gemma" in default_llm_model().lower()
+
+
 def use_openai_json_schema_mode() -> bool:
-    """
-    Cloud OpenAI supports json_schema structured outputs.
-    Ollama / local servers use json_object only.
-    Override with LLM_JSON_SCHEMA=1/0.
-    """
+    # Gemma: no response_format support at all
+    if is_gemma_model():
+        return False
+
     force = (os.environ.get("LLM_JSON_SCHEMA") or "").strip().lower()
     if force in ("1", "true", "yes", "on"):
         return True
     if force in ("0", "false", "no", "off"):
         return False
 
-    # Local base URL → json_object only
     base = (os.environ.get("OPENAI_BASE_URL") or "").strip().lower()
     if base and any(h in base for h in ("localhost", "127.0.0.1", "0.0.0.0")):
         return False
 
-    # Cloud OpenAI → json_schema supported
-    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
-    if key:
+    gemini_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    openai_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if gemini_key or openai_key:
         return True
 
     return False
+
+
+def build_messages(system: str, user: str) -> list[dict]:
+    """
+    Gemma doesn't support system role — merge into user message.
+    All other models get proper system + user separation.
+    """
+    if is_gemma_model():
+        return [{"role": "user", "content": f"{system}\n\n{user}"}]
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
