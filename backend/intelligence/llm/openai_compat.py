@@ -29,7 +29,7 @@ def get_openai_client() -> OpenAI:
     )
 
 
-def default_llm_model(fallback: str = "gemma-3-27b-it") -> str:
+def default_llm_model(fallback: str = "gemma-3-4b-it") -> str:
     m = (os.environ.get("LLM_MODEL") or "").strip()
     return m or fallback
 
